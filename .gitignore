@@ -1,0 +1,22 @@
+# Local mentor material: never force-add these paths.
+/_mentor_private/
+**/CECS_AI_Learning_Hub_6_Week_Intern_Mentoring_and_Delivery_Plan_v1.md
+**/CECS_AI_Learning_Hub_Repository_and_Team_Workspace_Setup.md
+
+# Credentials and local environment settings
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+
+# Dependencies, generated output, and local tooling
+node_modules/
+dist/
+build/
+coverage/
+.next/
+*.log
+.DS_Store
+Thumbs.db
