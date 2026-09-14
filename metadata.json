@@ -1,0 +1,6 @@
+{
+  "name": "CECS AI-Assisted Learning Hub",
+  "description": "Interactive prototype for CECS AI-Assisted Learning Hub with course-grounded Q&A, practice generation, materials curation, private study workspace, learning insights, and administrator governance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
