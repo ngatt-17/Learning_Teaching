@@ -2,7 +2,7 @@
 
 **Date:** 14 September 2026  
 **Author:** tranvananhanhanh (khuctieuho@gmail.com)  
-**Project:** CECS AI Learning Hub (VinUniversity)  
+**Project:** CECS AI Learning Hub (VinUniversity)
 
 ---
 
@@ -12,126 +12,183 @@
 
 The CECS AI Learning Hub addresses three distinct user roles within the College of Engineering and Computer Science (CECS):
 
-1. **Instructor / Teaching Assistant (TA):**
-   * **Material Ingestion & Verification:** Instructors upload course assets (lecture slides, syllabi, textbooks, code samples, and problem sets). They monitor processing status (Ready / Failed / Retry) and explicitly approve materials before they become accessible to students.
-   * **Assisted Practice Generation:** Instructors configure parameters (source slides, topic, difficulty level, question types) to automatically generate draft quizzes and practice exercises. Instructors review, edit, and publish these assessments.
-   * **Pedagogical Analytics & Feedback Loop:** Instructors view aggregated metrics on student engagement, commonly asked questions, identified conceptual misconceptions, and anonymous feedback (e.g., requests to adjust lecture pacing) to refine their teaching.
+**1. Instructor / Teaching Assistant (TA):**
+- **Material Ingestion & Verification:** Instructors upload course assets (lecture slides, syllabi, textbooks, code samples, problem sets). They monitor processing status (Ready / Failed / Retry) and explicitly approve materials before student access.
+- **Assisted Practice Generation:** Instructors configure parameters (source, topic, difficulty, question type) to generate draft quizzes. Instructors review, edit, and publish before students can attempt them.
+- **Pedagogical Analytics & Feedback Loop:** Instructors view aggregated metrics on engagement, common questions, misconceptions, and anonymous student feedback (e.g., pace-adjustment requests).
 
-2. **Student (Student-Centric Learning Experience):**
-   * **Course-Grounded Q&A with Socratic Guidance:** Students interact with an AI tutor strictly grounded in instructor-approved course materials. Responses provide explicit citations (source document and page/slide reference). Instead of spoon-feeding final answers, the AI offers Socratic hints and step-by-step scaffolding to foster critical thinking.
-   * **Slide-to-Micro-Lesson Decomposition:** Students can prompt the system to break down dense lecture slides into bite-sized (5–10 min) modular lessons accompanied by active-recall checkpoint quizzes.
-   * **Controlled Web Expansion:** Students may optionally expand searches to web sources; these external results are explicitly flagged with warning labels to distinguish them from official course content.
-   * **Psychologically Safe Private Study Space:** Students maintain an isolated personal workspace to take notes, annotate materials, ask "elementary/basic" questions without peer judgment, and generate self-testing quizzes.
-   * **Formative Practice & Anonymous Pacing Feedback:** Students complete published practice exercises, receive immediate formative feedback, and submit anonymous feedback or pace-adjustment requests directly to the instructor.
+**2. Student (Student-Centric Learning Experience):**
+- **Course-Grounded Q&A with Socratic Guidance:** Students interact with an AI tutor grounded in approved course materials. Responses include citations (document name + page/slide number). Rather than providing final answers immediately, the AI offers scaffolded Socratic hints to encourage reasoning. When course materials lack sufficient evidence, the system explicitly states this.
+- **Controlled Web Expansion:** Students may optionally expand queries to web sources; results are labeled clearly to distinguish from official course content.
+- **Private Study Space — Server-Enforced Owner-Only Access:** Students maintain an isolated personal workspace to take notes, annotate materials, and ask questions without peer judgment. Access is enforced at the server and database level. Note: hosting/operator access will be documented separately before any broader privacy guarantees are made.
+- **Formative Practice & Anonymous Pacing Feedback:** Students complete published practice, receive formative feedback with source references, and may submit anonymous pace-adjustment requests to instructors.
 
-3. **CECS Administrator:**
-   * **Governance & Readiness:** Administrators manage course allocations, monitor instructor/student enrollments, and track course readiness (material processing and published practice volume).
-   * **College-Level Insights:** Administrators access aggregate statistics across courses and departments to understand common learning bottlenecks while maintaining strict privacy boundaries.
+**3. CECS Administrator:**
+- **Governance & Readiness:** Manage course assignments, enrollments, and track material processing and practice publication status.
+- **College-Level Insights:** Access aggregate statistics on engagement and learning bottlenecks without accessing individual student private study spaces.
 
 ---
 
 ### 1.2. Privacy Boundaries: Private Notes vs. Shared Data
 
-Data privacy is a non-negotiable architectural boundary in this system:
+Privacy is a non-negotiable architectural boundary:
 
-* **Private Student Notes ("Private means Private"):** Personal notes, generated self-study questions, personal micro-lessons, and custom study plans belong exclusively to the student who created them. They are protected by server-side row-level access controls and are completely excluded from shared vector retrieval, public APIs, administrative exports, instructor dashboards, and ordinary application logs.
-* **Course Materials:** Public to all enrolled students and instructional staff within the assigned course after instructor approval.
-* **Submitted Feedback:** Intentionally and voluntarily submitted by students (anonymized if configured) for instructor review.
-* **Dashboard Data:** Anonymized, aggregated behavioral metrics (e.g., total questions asked per topic, common misconception tags) that never reveal individual note contents or raw personal queries.
+- **Private Student Notes:** Personal notes, self-generated questions, and annotations belong exclusively to their creator. Access is enforced server-side and at the database level (row-level policies). These are excluded from shared vector retrieval, public APIs, admin exports, instructor dashboards, and ordinary logs. Infrastructure/operator access will be documented before broader privacy guarantees are made.
+- **Course Materials:** Accessible to all enrolled students and instructional staff after instructor approval.
+- **Submitted Feedback:** Voluntarily submitted by students (anonymized if configured) for instructor review.
+- **Dashboard Data:** Anonymized aggregated metrics (question topics, misconception tags) — never revealing individual note contents.
 
 ---
 
-### 1.3. Pilot Success Metrics & Key Assumptions
+### 1.3. Pilot Hypotheses & Target Metrics
 
-* **Measurable Metric 1 (Grounded Retrieval Precision & Socratic Utility):** Over 85% of student chat queries successfully cite approved course materials with valid page/slide references, maintaining a verified hallucination rate under 5% during pilot testing.
-* **Measurable Metric 2 (Weekly Active Engagement):** At least 60% of enrolled students in the 1–4 pilot courses actively engage with the hub weekly (using Grounded Chat, completing practice quizzes, or using their private study space).
-* **Key Assumption to Validate:** *Students find bite-sized micro-lessons and Socratic guidance from slides more effective for exam preparation and active learning than passive slide reading or ungrounded external chatbots.*
+*These are initial targets for validation, not proven benchmarks. Methodology for each is described in Section 3.3.*
+
+- **Pilot Target 1 (Citation Correctness):** ≥85% of student queries return responses citing valid source documents with page/slide numbers, measured against a manually sampled evaluation set; hallucination rate <5% under predefined test cases.
+- **Pilot Target 2 (Weekly Active Adoption):** ≥60% WAU (Weekly Active Users) among enrolled students in the 1–4 pilot courses — used to assess product-market fit, not a guaranteed outcome.
+- **Key Assumption to Validate:** *Students find Socratic-guided responses and course-grounded answers more useful for learning than ungrounded general chatbots.*
 
 ---
 
 ## 2. Three University AI Learning Applications
 
-| Application & Source | Users & Learning Problem | Key Features | Evidence & Limitations | What CECS Could Adopt (Student-Centric Focus) |
+*Research note: Each claim below is sourced from publicly available university or conference publications. Where specific metrics were not directly confirmable, conservative descriptions are used.*
+
+| Application & Source | Users & Learning Problem | Key Features | Evidence & Limitations | What CECS Could Adopt |
 |---|---|---|---|---|
-| **1. AI Learning Companion & MAIC**<br>*(Tsinghua University, Dept. of Automation & OpenMAIC)*<br>[Source: Tsinghua Automation / OpenMAIC 2024–2026; Access Date: 14 Sep 2026] | **Users:** 1,300+ students across 36 engineering courses.<br>**Problem:** Information overload, siloed course knowledge, and students struggling to connect prerequisite math/science concepts to advanced engineering courses. | • **Curriculum Knowledge Graph:** Isolate course-level knowledge bases while mapping cross-course concept links (e.g., *gradient descent* linked across AI and Signal Processing).<br>• **Multi-Agent Classrooms:** AI Teacher, AI TA, and virtual AI classmates with distinct learning styles.<br>• Grounded RAG with strict citations and automated quiz generation. | • **Evidence:** Deployed across 36 courses; MAIC logged 100,000+ interactions across 500–2,000+ students; 84% student satisfaction; OpenMAIC reached 30,000+ GitHub stars.<br>• **Limitations:** Requires continuous expert supervision to suppress hallucinations; less applicable for manual physical lab skills. | • **Cross-Course Concept Linkage:** Remind students of prerequisite concepts from earlier semesters (e.g., Calculus in ML).<br>• **Slide-to-Quiz Decomposition:** Allow students to turn dense slides into active-recall quizzes. |
-| **2. ChatGPT Edu & Socratic AI Tutors**<br>*(University of Oxford)*<br>[Source: Univ. of Oxford & OUP Finch Project 2025–2026; Access Date: 14 Sep 2026] | **Users:** University-wide students & staff, with focused deployment for Science Foundation Year students.<br>**Problem:** Over-reliance on direct answer generation without fostering conceptual understanding, resulting in shallow learning. | • **Socratic Tutoring Engine:** Guides students step-by-step through inquiry and conceptual hints rather than providing raw solutions.<br>• **Finch AI Student Tutor:** Deconstructs complex scientific queries into manageable sub-questions.<br>• Custom self-testing and personalized study revision materials. | • **Evidence:** Successful campus-wide rollout following pilot programs showing measurable gains in student conceptual confidence.<br>• **Limitations:** Heavy reliance on external LLM vendor endpoints; requires mandatory ethical/responsible AI training for students. | • **Socratic Tutoring Mode:** Ask probing questions, break down complex algorithm/math problems into bite-sized steps, and provide scaffolded hints instead of raw answers. |
-| **3. PKU Zhixue / Boya AI Education**<br>*(Peking University)*<br>[Source: Peking University Boya Large Model Project 2024–2026; Access Date: 14 Sep 2026] | **Users:** Faculty and students across core Computer Science and Math courses (Python, C/C++, Java, Data Structures, Discrete Math, Intro to AI).<br>**Problem:** Students have varied learning paces, lack 24/7 personalized guidance, and hesitate to ask basic questions in public lectures. | • **Student Hub:** 24/7 intelligent Q&A, active inquiry prompts, personalized learning path recommendation.<br>• **Instructor Hub:** Automated material drafting, automated code/assignment grading, student learning analytics, and syllabus planning. | • **Evidence:** Operational across major university-wide STEM courses.<br>• **Limitations:** Quantitative learning impact evaluations are still actively developing for non-programming courses. | • **Personalized Learning Paths:** AI suggests a self-paced study sequence based on student questions.<br>• **Safe Private Study Environment & Anonymous Pacing Feedback:** Enables students to ask fundamental questions without fear and send anonymous pace feedback to instructors. |
+| **1. MAIC (Massive AI-empowered Course)**<br>*Tsinghua University*<br>[Source: MAIC project site / NeurIPS 2024 paper (if available); Access Date: 14 Sep 2026] | **Users:** Large-scale undergraduate engineering courses at Tsinghua.<br>**Problem:** High cost of interactive online course delivery; students passive in traditional lecture settings. | • **Multi-Agent Classroom:** AI Teacher dynamically adjusts lecture pacing; AI Teaching Assistants respond to individual questions; AI Classmates with varied personas simulate peer discussion.<br>• Course-grounded Q&A with citations and automated quiz generation.<br>• Instructor uploads slides; system generates the interactive experience. | • **Evidence:** Reported large-scale interactions and high student satisfaction in Tsinghua pilot deployments; OpenMAIC was released as open-source (GitHub star count not directly verified by this author at time of writing).<br>• **Limitations:** Requires ongoing expert oversight to reduce hallucinations; less suitable for hands-on physical lab courses. | • AI-assisted classroom pacing and Q&A grounded in approved lecture materials.<br>• Automated quiz generation from uploaded slides, with instructor review before publication. |
+| **2. Finch AI Student Tutor**<br>*Oxford University Press (OUP)* — *Note: OUP is a department of the University of Oxford but operates independently as a publisher.*<br>[Source: OUP Finch project documentation; Access Date: 14 Sep 2026] | **Users:** Science Foundation Year students (OUP partnership).<br>**Problem:** Students over-rely on direct answers, reducing deep conceptual understanding. | • **Socratic Tutoring Engine:** Decomposes complex queries into manageable sub-questions; provides hints and guided reasoning steps rather than direct answers.<br>• Personalized self-testing and revision materials. | • **Evidence:** Pilot with hundreds of participants showed measurable gains in conceptual confidence.<br>• **Limitations:** Currently narrow in subject scope; dependent on OUP content integration. | • **Socratic prompting pattern:** For practice questions, AI offers scaffolded hints before full explanations — directly applicable to CECS programming and math courses. |
+| **3. PKU Zhixue (北大智学)**<br>*Peking University — Boya AI Education Platform*<br>[Source: PKU Boya AI Platform official documentation 2024–2026; Access Date: 14 Sep 2026] | **Users:** Faculty and students in core CS courses at PKU.<br>**Problem:** Students have varied learning paces and limited 24/7 access to personalized guidance; instructors face grading burden. | • **Student-side:** 24/7 course-specific Q&A, active inquiry prompts, and learning path suggestions.<br>• **Instructor-side:** AI-assisted course material drafting and student learning analytics. | • **Evidence:** Operational across multiple university-wide CS courses at PKU.<br>• **Limitations:** Quantitative learning outcome data is not yet widely published for non-programming disciplines. | • **Instructor-in-the-loop workflow:** AI generates draft assessments and material summaries; instructors retain full editorial and approval authority before publication.<br>• 24/7 Q&A grounded in course-specific knowledge base. |
 
 ---
 
-## 3. Proposed CECS Product & Stack Ideas
+## 2.5. Prior Team Exploration: VLearn AI Notes Prototype
 
-### 3.1. Proposed Core Features & Scope Boundaries
+Before Day 1, our team built a small interactive prototype to explore **how AI can assist students in taking notes from a lecture** — an area directly relevant to the Private Study Space feature proposed in this report.
 
-#### ✅ Must-Have for Pilot (Delivery by 24 September / Launch on 5 October 2026)
-1. **Email-OTP Authentication & Role-Based Authorization:** Secure email verification for `@vinuni.edu.vn` accounts with strict Instructor, Student, and Admin role enforcement.
-2. **Material Processing & Ingestion Pipeline:** Parsing of course lecture slides (PDF/PPTX) and reading materials into clean markdown/text chunks with page-level metadata.
-3. **Course-Grounded RAG Chat with Socratic Hints & Citations:** Answering queries strictly based on approved course materials, displaying inspectable citations (document name + slide number), prompting Socratic hints, and providing explicit insufficient-evidence fallbacks.
-4. **Slide-to-Lesson & Practice Quiz Generation:** Automatic extraction of key learning points from slides to create bite-sized review modules and draft quizzes (multiple choice, short answer), subject to instructor review.
-5. **Psychologically Safe Private Study Space:** A strictly isolated student workspace for personal notes, self-generated flashcards, and annotations, protected by database-level row-level security.
-6. **Anonymous Course Feedback & Pace Indicator:** Mechanism for students to submit anonymous pace-adjustment requests or feedback to instructors.
-7. **Basic Instructor Insights:** Aggregated metrics showing frequent question topics, difficult concepts, and average quiz scores.
+**Prototype:** [VLearn AI Notes — Three Note-Taking Approaches (A / B / C)](https://chipper-basbousa-bccf28.netlify.app/)  
+**Context used:** Lesson 4 — Vector Database & RAG Basics (32-minute lecture with slides; instructor also elaborates beyond slide content).  
+**Prototype type:** Internal UX/interaction concept demo; not yet formally evaluated with real users.
 
-#### ⏳ Later Scope (Post-Pilot / Future Roadmap)
-* Automatic multi-agent virtual classroom peers (like Tsinghua MAIC).
-* Deep Curriculum Knowledge Graph across all 4-year CECS degree programs.
-* Automated Canvas LMS LTI integration and Microsoft Single Sign-On (SSO).
-* Automated formal grading with LMS gradebook sync.
-* Support for multimodal video/audio lecture stream indexing.
+The prototype explored three distinct AI-assisted note-taking interaction models (Option A / B / C) applied to the same lesson content, simulating the scenario where a student is preparing for an exam two weeks later. The goal was to understand which interaction model feels most natural and useful from the student's perspective.
 
----
+**Relevance to CECS AI Learning Hub:**
 
-### 3.2. Recommended Technical Stack
+| Dimension | Observation from Prototype |
+|---|---|
+| **Note structure** | AI-generated structure from lecture content helps students who struggle to organize raw notes from dense slides |
+| **Student agency** | Students need the ability to edit, annotate, and personalize AI-generated notes rather than receive a fixed output |
+| **Lecture coverage gap** | Content spoken by the instructor beyond what appears on slides is a common student pain point — AI notes should capture both |
+| **Private space boundary** | Notes generated in this context should remain strictly personal; the prototype reinforces why owner-only access is architecturally necessary |
 
-```
-[ Frontend: Next.js 14+ (App Router) + React + Tailwind CSS + Shadcn UI ]
-                                   │  (REST / Server Actions)
-[ Backend API: FastAPI (Python 3.11+) / Async Architecture ]
-                                   │
-      ┌────────────────────────────┼────────────────────────────┐
-      ▼                            ▼                            ▼
-[ Database & Storage ]     [ Vector Retrieval ]      [ LLM & RAG Engine ]
-• PostgreSQL (Supabase)   • pgvector / ChromaDB     • Gemini 1.5 Flash / Pro
-• Row-Level Security       • Hybrid Search (Dense    • Socratic Prompting
-• Object Store (S3/GCS)      + BM25 Keyword)         • Grounded Citations
-```
+**Limitations of the prototype:**
+- No formal user testing or quantitative evaluation has been conducted.
+- The demo uses a single fixed lesson; behavior across diverse course types and formats (math-heavy, code-heavy) has not been validated.
+- The prototype does not yet integrate with course-approved material retrieval or citation grounding.
 
-* **Frontend:** **Next.js (React / TypeScript / Tailwind CSS)** — Fast, responsive, server-side rendering support, with clean UI components for chat, document viewing, and note-taking.
-* **Backend:** **FastAPI (Python)** — High performance, native async support, and direct compatibility with Python-based AI/RAG libraries (LangChain/LlamaIndex, PyMuPDF, Unstructured).
-* **Database & Private Storage:** **PostgreSQL with Row-Level Security (RLS)** — Relational integrity for users, courses, materials, and strict database-level isolation for student private notes.
-* **Vector Store & Retrieval:** **pgvector** (or ChromaDB for local staging) using hybrid retrieval (Dense Semantic Embeddings + Sparse BM25) to ensure exact keyword and concept matching from slide decks.
-* **LLM Engine:** **Google Gemini 1.5 Pro/Flash API** (or OpenAI API) — High context window, strong structured JSON output for quiz generation, and fast token generation.
-
-**Technical Uncertainties to Test in Day 2:**
-* Accuracy of slide PDF text/table extraction and bounding-box page tracking for citations.
-* Latency and cost trade-offs between dense vector search vs. hybrid BM25 search.
-* Strictness of database RLS policies to guarantee zero accidental leakage of private student notes.
+**Design lesson for CECS:** Rather than auto-generating a final note document, the most useful pattern appears to be **AI-assisted scaffolding** — the system proposes a structure and key points, and the student fills in, edits, and annotates to make it their own. This aligns with Private Study Space as an *active learning tool*, not a passive content repository.
 
 ---
 
-### 3.3. Alignment with QS Reimagine Education Awards & VinUni QS-100 Ambition
+## 3. Proposed CECS Product & Stack
 
-To support VinUni's strategic ambition of reaching the **QS Top 100**, the CECS AI Learning Hub should be positioned as an innovative pedagogical intervention targeting the **QS Reimagine Education Awards** (specifically the *AI in Education* or *Nurturing Critical Thinking* categories):
+### 3.1. Feature Scope — Prioritized by Delivery Risk
 
-1. **Pedagogical Innovation over Generic Chatbots:** Rather than acting as a shortcut answer generator, the system incorporates Oxford's **Socratic guiding method** and Tsinghua's **concept-linked curriculum scaffolding**, actively training students in problem-solving and critical analysis.
-2. **Academic Integrity & Responsible AI by Design:** By strictly enforcing grounded source citations and explicit failure notifications when evidence is lacking, the hub establishes a gold-standard framework for ethical AI adoption in Southeast Asian higher education.
-3. **Evidence-Based Learning Analytics:** The platform provides actionable feedback loops between students' learning bottlenecks and instructors' teaching strategies, enabling verifiable improvements in student course outcomes.
+Given a team delivery deadline of **24 September** for core flow demo and **5 October** for launch, features are prioritized as follows:
+
+#### P0 — Absolutely Critical (Week 1–2)
+Must function end-to-end for the Week 2 demo:
+1. **Email-OTP Authentication & Server-Side Role Authorization** — Instructor, Student, Admin roles enforced at every API endpoint.
+2. **Material Upload, Processing & Approval Pipeline** — PDF/PPTX ingestion, chunking with page-level metadata, instructor approve/unpublish/remove workflow.
+3. **Grounded RAG Chat with Citations & Insufficient-Evidence Handling** — Retrieval from approved materials only; inspectable citations (document name + slide/page number); explicit fallback message when evidence is insufficient.
+4. **Private Study Space — Server-Enforced Owner-Only Access** — Personal notes and self-generated questions; database-level isolation; no shared retrieval or admin access.
+
+#### P1 — Core Feature (Week 2)
+Required for a complete core flow demo:
+
+5. **Practice/Quiz Generation, Instructor Review & Student Attempt with Formative Feedback** — AI-drafted questions; instructor edits and publishes; students attempt; feedback references source materials.
+6. **Anonymous Pacing Feedback Channel** — Students submit anonymous requests; aggregated for instructor view.
+
+#### P2 — Supporting Feature (Week 2–3)
+7. **Basic Instructor & Admin Insights Dashboard** — Aggregated question topics, misconception tags, quiz score summaries.
+
+#### P3 — Later Roadmap (Post-Pilot)
+- Socratic multi-step guided tutoring mode (beyond basic hints)
+- Slide-to-micro-lesson decomposition with structured learning paths
+- Curriculum Knowledge Graph across the 4-year CECS program
+- Multi-agent virtual classroom peers (MAIC-style)
+- Microsoft SSO, Canvas LTI integration, formal auto-grading
+
+*Note: Per the project README, Microsoft SSO, Canvas integration, advanced personalization, and visual polish must not delay the pilot.*
+
+---
+
+### 3.2. Recommended Baseline Tech Stack
+
+A single recommended baseline for the team to validate on Day 2, with alternatives noted only if implementation constraints require them.
+
+| Layer | Recommended Baseline | Rationale |
+|---|---|---|
+| **Frontend** | Next.js 14+ (App Router) + TypeScript + Tailwind CSS | SSR support, strong React ecosystem, fast iteration |
+| **Backend API** | FastAPI (Python 3.11+, async) | Native Python AI library compatibility (LlamaIndex, PyMuPDF, Unstructured) |
+| **Database** | PostgreSQL + Row-Level Security (RLS) | Relational integrity; RLS enforces private notes isolation at DB level |
+| **File Storage** | Supabase Storage or S3-compatible object store | Secure private material storage separate from DB |
+| **Vector Store** | pgvector (same PostgreSQL instance) | Avoids additional service; hybrid BM25+vector in one DB |
+| **Retrieval** | Hybrid: dense semantic embeddings + BM25 keyword | Handles both concept-level and exact-term matching from slides |
+| **LLM API** | Team-agreed model API (Gemini or equivalent) | To be finalized in Joint Planning based on API access and cost |
+
+*Alternatives may be evaluated if implementation or cost constraints require them; decisions to be recorded in `docs/decisions/`.*
+
+**Technical uncertainties to validate on Day 2:**
+- Accuracy of page-number metadata extraction from PDF/PPTX at the chunk level.
+- RLS policy correctness under cross-user query scenarios (security test required).
+- Latency and cost of hybrid retrieval at pilot scale.
+
+---
+
+### 3.3. Evaluation Methodology
+
+| Metric | Measurement Method |
+|---|---|
+| Citation correctness | Human evaluation on a manually sampled set of student queries vs. retrieved source |
+| Groundedness | % of answer sentences supported by at least one retrieved chunk |
+| Hallucination rate | % of factual claims not supported by retrieved context, in predefined test cases |
+| Retrieval Recall@K | Gold-source benchmark: does the correct slide appear in top-K retrieved chunks? |
+| Socratic response quality | Rubric: does AI offer a hint → reasoning scaffold → final answer sequence? |
+| Quiz quality | Instructor acceptance rate (% of AI-generated questions approved without edit) |
+| WAU (adoption) | Weekly unique students who perform at least one action (chat, quiz, note) |
+| Privacy enforcement | Automated cross-user authorization tests: student A cannot access student B's notes |
+
+*Baseline measurements will be established during Week 2 demo using real course materials from the pilot.*
+
+---
+
+### 3.4. Strategic Alignment with VinUni's Educational Innovation Goals
+
+The CECS AI Learning Hub has potential to position VinUni as a regional leader in responsible, evidence-based AI adoption in higher education — which may align with opportunities such as the **QS Reimagine Education Awards** (*AI in Education* or *Nurturing Critical Thinking* categories). This is a potential strategic positioning opportunity, not a guaranteed outcome.
+
+Three areas of differentiation worth developing as evidence for any future award application:
+1. **Pedagogical intent over raw automation:** Socratic guidance, instructor-in-the-loop approval, and grounded citations distinguish the hub from a generic chatbot.
+2. **Privacy by design:** Explicit server-enforced isolation of student private work, with documented operator access boundaries, addresses a gap in most existing university AI deployments.
+3. **Instructor empowerment:** The platform is designed to reduce instructor burden while keeping instructors in control of what students access — a balance that is often missing in fully automated tutoring systems.
 
 ---
 
 ## 4. Interests & Contribution
 
-* **Relevant Technical Experience:** 
-  * Strong background in Python backend development, RESTful API design, and asynchronous systems.
-  * Experience with modern frontend frameworks (React/Next.js) and relational database modeling (PostgreSQL).
-  * Hands-on familiarity with LLM orchestration (prompt engineering, RAG pipelines, embedding generation, and vector search).
-* **Preferred Work Areas (2):**
-  1. **AI / RAG Pipeline & Citation Grounding:** Designing the slide-parsing, embedding, retrieval, and citation verification mechanisms.
-  2. **Backend Services & Data Privacy Architecture:** Implementing authentication (OTP), course authorization, and Row-Level Security for the Private Study Space.
-* **Personal Learning Goal (1):** Master the design of low-latency, production-grade hybrid retrieval systems (combining BM25 and vector embeddings) with guaranteed citation fidelity.
-* **Support Needed from Team & Mentor:**
-  * Sample CECS course materials (PDF slides, syllabi, and sample quizzes) for realistic benchmark testing.
-  * Approved development API keys (e.g., Gemini API / OpenAI API) and cloud staging infrastructure access.
-* **Concrete Day 2 Contribution:** Build and validate an end-to-end prototype of the **Slide Ingestion & Grounded RAG Retrieval Pipeline**, demonstrating:
-  1. Parsing of a sample CECS lecture slide PDF into indexed chunks with slide number metadata.
-  2. Grounded Q&A response generation returning accurate inline citations and an explicit "insufficient context" fallback when queried on out-of-scope topics.
+**Relevant Technical Experience:**
+- Python backend development, RESTful API design, async systems.
+- React/Next.js frontend, PostgreSQL schema design and query optimization.
+- LLM integration: prompt engineering, embedding pipelines, vector search.
+
+**Preferred Work Areas (2):**
+1. **RAG Retrieval Pipeline & Citation Grounding** — Slide ingestion, chunking with page metadata, hybrid retrieval, and citation extraction.
+2. **Backend API & Privacy Architecture** — OTP authentication, role-based authorization, and RLS configuration for private notes isolation.
+
+**Personal Learning Goal (1):** Build and benchmark a production-grade hybrid retrieval system (BM25 + dense vector) with verifiable citation fidelity on real lecture materials.
+
+**Support Needed:**
+- Sample CECS lecture materials (at least one course: slides + syllabus) for retrieval benchmarking.
+- Agreed team LLM API access and cloud staging environment.
+
+**Day 2 Contribution:** Contribute to the integrated material-ingestion and grounded-RAG pipeline within the shared application codebase — specifically the PDF parsing, chunk-level page metadata extraction, hybrid retrieval, and citation output. Will deliver a working vertical slice (not a standalone prototype) with a test case demonstrating correct citation and explicit insufficient-evidence fallback behavior.
