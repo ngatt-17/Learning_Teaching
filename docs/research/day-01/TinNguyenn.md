@@ -95,11 +95,11 @@ This pilot maps directly to a [QS Reimagine Education Awards](https://www.qs.com
 
 ## 4. Interests and contribution
 
-- **Experience:** SV năm 4 CNTT HUST. Dùng được Python, mới học cơ bản FastAPI, Postgres/pgvector, RAG/LangChain. Có làm project nhóm STEMVERSE (backend + RAG đơn giản).
-- **Preferred work areas (2):** (1) Backend RAG cơ bản (chunk/retrieval, chat có citation); (2) Authz + cô lập private notes.
-- **Learning goal (1):** Học làm RAG và test privacy chuẩn production.
-- **Support needed:** Tài khoản Claude để hỗ trợ research và code.
-- **Concrete Day 2 contribution:** Xây dựng luồng kết nối cơ bản từ lúc Giảng viên tải file PDF lên (upload → chunking → trạng thái ready/approve) cho đến khi Sinh viên hỏi đáp qua RAG và nhận câu trả lời có kèm trích dẫn metadata (tên tài liệu + số trang).
+- **Experience:** 4th-year Computer Science student at HUST. Proficient in Python, with basic knowledge of FastAPI, Postgres/pgvector, and RAG/LangChain. Built the STEMVERSE group project (backend + simple RAG).
+- **Preferred work areas (2):** (1) Basic backend RAG (chunking/retrieval, chat with citations); (2) Authz + private-notes isolation.
+- **Learning goals (2):** (1) Production-grade RAG — evaluate with RAGAS (faithfulness, answer relevancy, context precision/recall) and progress to production (staging, monitoring, cost/logging, CI/tests); (2) Privacy-by-design backend — server-side course/owner checks with denial tests.
+- **Support needed:** A Claude account to support research and coding.
+- **Concrete Day 2 contribution:** Build a basic end-to-end flow from instructor PDF upload (upload → chunking → ready/approve status) to student Q&A via RAG with metadata citations (document name + page number).
 
 ---
 
