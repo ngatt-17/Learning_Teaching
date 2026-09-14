@@ -176,22 +176,29 @@ Three areas of differentiation worth developing as evidence for any future award
 
 ## 4. Interests & Contribution
 
-**Relevant Technical Experience:**
-- Python backend development, RESTful API design, async systems.
-- React/Next.js frontend, PostgreSQL schema design and query optimization.
-- LLM integration: prompt engineering, embedding pipelines, vector search.
+**Relevant Experience:**
+- Observing and documenting user behavior; conducting informal user interviews and feedback sessions.
+- Writing structured research notes, test reports, and product documentation.
+- Familiarity with the product flows described in this report (instructor, student, admin journeys) through Day 1 research — providing a strong foundation for designing realistic test scenarios.
+- Basic technical literacy sufficient to run the application locally, interpret system behavior, and communicate findings clearly to the engineering team.
 
 **Preferred Work Areas (2):**
-1. **RAG Retrieval Pipeline & Citation Grounding** — Slide ingestion, chunking with page metadata, hybrid retrieval, and citation extraction.
-2. **Backend API & Privacy Architecture** — OTP authentication, role-based authorization, and RLS configuration for private notes isolation.
 
-**Personal Learning Goal (1):** Build and benchmark a production-grade hybrid retrieval system (BM25 + dense vector) with verifiable citation fidelity on real lecture materials.
+1. **UX Research & User Testing** — Design and facilitate usability testing sessions with real CECS instructors and students during Week 3 pilot trials. Responsibilities include: writing test scripts and observation guides for all three user journeys (Instructor, Student, Admin); documenting usability issues, points of confusion, and unexpected behaviors; synthesizing findings into actionable UX bug reports and prioritized fix recommendations for the team.
+
+2. **Product Evaluation & Benchmark Design** — Build the evaluation framework described in Section 3.3. Responsibilities include: constructing a gold-standard test set of realistic student questions paired with expected source citations (using real CECS lecture slides); manually evaluating RAG outputs for citation correctness and hallucination; measuring Socratic response quality against a defined rubric; and reporting results to the team in a structured format (spreadsheet + summary doc).
+
+**Personal Learning Goal (1):** Learn to design and execute a structured usability test for an AI-assisted product — specifically, how to distinguish between *UX friction* (interface is confusing) and *AI quality issues* (the model gives a wrong or unhelpful answer), and how to document both in a way the engineering team can act on.
 
 **Support Needed:**
-- Sample CECS lecture materials (at least one course: slides + syllabus) for retrieval benchmarking.
-- Agreed team LLM API access and cloud staging environment.
+- Access to the deployed staging environment to run test sessions with real users.
+- At least one willing Instructor and 2–3 Students from a CECS pilot course to participate in Week 3 user trials.
+- Sample CECS lecture slides (at least one course) to build the citation evaluation benchmark set.
+- Agreement from the team on the evaluation rubrics in Section 3.3 before Week 2 demo, so benchmarking can begin immediately after.
 
-**Day 2 Contribution:** Contribute to the integrated material-ingestion and grounded-RAG pipeline within the shared application codebase — specifically the PDF parsing, chunk-level page metadata extraction, hybrid retrieval, and citation output. Will deliver a working vertical slice (not a standalone prototype) with a test case demonstrating correct citation and explicit insufficient-evidence fallback behavior.
+**Day 2 Contribution:** Draft the **User Testing Plan** and the **Citation Evaluation Benchmark Set** — specifically:
+1. A test script covering the three core user journeys (Instructor upload & approve, Student grounded Q&A + private notes, Admin insights view) with observation prompts and success criteria for each step.
+2. An initial set of 10–15 gold-standard Q&A pairs drawn from a sample CECS lecture slide deck, ready for the engineering team to run against the RAG pipeline for early citation accuracy measurement.
 
 ---
 
