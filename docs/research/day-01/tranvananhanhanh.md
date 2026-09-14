@@ -116,8 +116,21 @@ Required for a complete core flow demo:
 - Socratic multi-step guided tutoring mode (beyond basic hints)
 - Slide-to-micro-lesson decomposition with structured learning paths
 - Curriculum Knowledge Graph across the 4-year CECS program
-- Multi-agent virtual classroom peers (MAIC-style)
 - Microsoft SSO, Canvas LTI integration, formal auto-grading
+- **AI Study Companion — Proactive Learning Partner** *(research-backed, proposed for V2)*
+
+  Inspired directly by the **AI Classmates** concept from Tsinghua MAIC [1], where virtual peers with distinct personas accompany students throughout the learning experience, the CECS equivalent would function as a **lightweight proactive companion** rather than a full multi-agent classroom:
+
+  | Companion Behaviour | Description | Grounding in MAIC Research |
+  |---|---|---|
+  | **Daily learning summary** | End-of-day in-app notification summarising key concepts the student engaged with — drawn strictly from approved course materials | MAIC's AI Classmates simulate ongoing peer presence; daily recap extends this passively |
+  | **Spaced repetition nudge** | Reminds students to revisit a concept or quiz at the optimal interval before forgetting sets in (Ebbinghaus curve) | MAIC auto-generates quiz follow-ups; Companion schedules them proactively |
+  | **Upcoming quiz reminder** | Notifies students of published practice deadlines and new instructor-released content | Extends MAIC's automated quiz generation into a student-facing scheduling loop |
+  | **"Your classmate asked this" prompt** | Anonymised aggregation of common questions from the cohort surfaced as conversation starters — *never* revealing who asked | Mirrors MAIC AI Classmates sparking peer-like discussion without exposing private queries |
+
+  **Privacy boundary:** All companion content is derived exclusively from *course-level activity* (published materials, quiz schedules, aggregated anonymous questions) — never from a student's private notes or personal chat history. Students can disable the companion entirely.
+
+  **Scope rationale for Post-Pilot:** Companion requires a push notification infrastructure (FCM / Web Push), a backend scheduler, and careful notification UX design. These are non-trivial and must not delay P0–P2 core flows. However, the UX research questions for this feature (frequency, tone, opt-in rate) can be gathered during Week 3 user trials and inform V2 planning.
 
 *Note: Per the project README, Microsoft SSO, Canvas integration, advanced personalization, and visual polish must not delay the pilot.*
 
