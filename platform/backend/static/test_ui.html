@@ -1,0 +1,913 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CECS AI Hub — API Test Console</title>
+<style>
+  :root{
+    --bg:#f4f5f7; --panel:#ffffff; --border:#e2e5ea; --text:#15181d; --muted:#6b7280;
+    --accent:#2563eb; --ok:#059669; --warn:#b45309; --err:#dc2626; --chip:#f0f2f5;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:14px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{background:#0f172a;color:#fff;padding:14px 20px;display:flex;flex-wrap:wrap;
+         gap:12px;align-items:center;justify-content:space-between}
+  header h1{font-size:15px;margin:0;font-weight:600;letter-spacing:.01em}
+  header .sub{font-size:12px;color:#94a3b8}
+  .headright{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+        font-size:12px;background:#1e293b;color:#cbd5e1;border:1px solid #334155}
+  .dot{width:8px;height:8px;border-radius:50%;background:#64748b}
+  .dot.ok{background:#34d399}.dot.err{background:#f87171}
+  .wrap{display:grid;grid-template-columns:300px 1fr;gap:16px;padding:16px;align-items:start}
+  @media (max-width:900px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px}
+  .card h2{font-size:13px;margin:0 0 12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .card h3{font-size:14px;margin:18px 0 8px}
+  .card h3:first-of-type{margin-top:0}
+  label{display:block;font-size:12px;color:var(--muted);margin:8px 0 4px}
+  input,select,textarea{width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:7px;
+        font:inherit;background:#fff;color:var(--text)}
+  textarea{min-height:70px;resize:vertical}
+  button{padding:7px 12px;border:1px solid var(--accent);background:var(--accent);color:#fff;
+         border-radius:7px;font:inherit;font-size:13px;cursor:pointer}
+  button:hover{filter:brightness(1.07)}
+  button.ghost{background:#fff;color:var(--accent)}
+  button.danger{background:var(--err);border-color:var(--err)}
+  button.mini{padding:3px 8px;font-size:12px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+  .tabs button{background:#fff;color:var(--muted);border:1px solid var(--border)}
+  .tabs button.active{background:#0f172a;color:#fff;border-color:#0f172a}
+  .hint{font-size:12px;color:var(--muted);margin:6px 0 0}
+  .acct{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px;
+        border:1px solid var(--border);border-radius:8px;margin-bottom:6px}
+  .acct b{font-size:13px;font-weight:600}
+  .acct span{display:block;font-size:11px;color:var(--muted)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:var(--chip)}
+  .badge.approved{background:#d1fae5;color:#065f46}
+  .badge.draft{background:#fef3c7;color:#92400e}
+  .badge.processing{background:#dbeafe;color:#1e40af}
+  .badge.archived{background:#e5e7eb;color:#4b5563}
+  .badge.pass{background:#d1fae5;color:#065f46}
+  .badge.fail{background:#fee2e2;color:#991b1b}
+  pre{background:#0f172a;color:#e2e8f0;padding:10px;border-radius:8px;overflow:auto;
+      font-family:var(--mono);font-size:12px;margin:8px 0 0;max-height:280px}
+  .log{font-family:var(--mono);font-size:12px}
+  .log details{border-bottom:1px solid var(--border);padding:6px 0}
+  .log summary{cursor:pointer;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .code{font-weight:700;padding:1px 6px;border-radius:5px;background:var(--chip)}
+  .code.s2{background:#d1fae5;color:#065f46}
+  .code.s4{background:#fee2e2;color:#991b1b}
+  .code.s5{background:#fde68a;color:#78350f}
+  .empty{color:var(--muted);font-size:13px;padding:10px 0}
+  .flow{font-size:12px;color:var(--muted);margin:0 0 10px;padding:8px 10px;background:var(--chip);border-radius:8px}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>CECS AI Learning Hub — API Test Console</h1>
+    <div class="sub">Day 2 · FastAPI + PostgreSQL RLS · kiểm thử thủ công toàn bộ luồng</div>
+  </div>
+  <div class="headright">
+    <span class="pill"><span id="healthDot" class="dot"></span><span id="healthText">checking…</span></span>
+    <span class="pill" id="userPill">chưa đăng nhập</span>
+    <button class="ghost mini" onclick="logout()">Đăng xuất</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- ============ SIDEBAR ============ -->
+  <div>
+    <div class="card">
+      <h2>1 · Đăng nhập nhanh</h2>
+      <div id="accounts"></div>
+      <p class="hint">Dùng OTP master <code>000000</code> (chỉ bật ở môi trường dev).</p>
+    </div>
+
+    <div class="card">
+      <h2>2 · Đăng nhập bằng OTP thật</h2>
+      <label>Email @vinuni.edu.vn</label>
+      <input id="otpEmail" value="student_a@vinuni.edu.vn">
+      <div class="row">
+        <button onclick="requestOtp()">Gửi mã OTP</button>
+      </div>
+      <label>Mã OTP nhận được</label>
+      <input id="otpCode" placeholder="6 chữ số">
+      <div class="row">
+        <button onclick="verifyOtp()">Xác thực & lấy JWT</button>
+        <button class="ghost" onclick="callMe()">/auth/me</button>
+      </div>
+      <div id="otpInfo" class="hint"></div>
+    </div>
+
+    <div class="card">
+      <h2>3 · Khóa học đang chọn</h2>
+      <select id="courseSelect" onchange="onCourseChange()"></select>
+      <div class="row">
+        <button class="ghost mini" onclick="loadCourses()">Tải lại danh sách</button>
+      </div>
+      <div id="courseInfo" class="hint"></div>
+    </div>
+  </div>
+
+  <!-- ============ MAIN ============ -->
+  <div>
+    <div class="tabs" id="tabs"></div>
+
+    <!-- STUDENT -->
+    <section class="card tabpane" id="pane-student">
+      <p class="flow">Luồng sinh viên: Lesson → Learning/Quiz → Note riêng tư → Feedback ẩn danh → Điểm.</p>
+
+      <h3>Tab Lesson — tài liệu đã duyệt</h3>
+      <div class="row"><button onclick="loadStudentMaterials()">GET /courses/{id}/materials/</button></div>
+      <div id="studentMaterials"></div>
+
+      <h3>Tab Quiz — làm bài (server chấm)</h3>
+      <div class="row"><button onclick="loadQuizzes()">GET /courses/{id}/quizzes/</button></div>
+      <div id="quizList"></div>
+      <div id="quizRunner"></div>
+      <div id="quizResult"></div>
+
+      <h3>Quiz tổng hợp — chọn ít nhất 2 chủ đề đã học</h3>
+      <div class="row"><button onclick="loadTopics()">GET /quizzes/topics</button></div>
+      <div id="topicList"></div>
+
+      <h3>Tab Note — không gian riêng tư (RLS)</h3>
+      <label>Tiêu đề</label><input id="noteTitle" value="Ghi chú buổi 1">
+      <label>Nội dung</label><textarea id="noteContent">Process là chương trình đang chạy…</textarea>
+      <div class="row">
+        <button onclick="createNote()">Tạo ghi chú</button>
+        <button class="ghost" onclick="loadNotes()">Tải ghi chú của tôi</button>
+      </div>
+      <div id="notesList"></div>
+
+      <h3>Tab Quiz / Active learning — điểm của tôi (chỉ đọc)</h3>
+      <div class="row">
+        <button onclick="loadMyScore()">GET /scores/my-score</button>
+      </div>
+      <p class="hint">🔒 Sinh viên không ghi được điểm của chính mình. Điểm chỉ được ghi bởi
+        giảng viên/TA, hoặc do server tự chấm bài nộp — xem tab Giảng viên.</p>
+      <div id="scoreBox"></div>
+
+      <h3>Tab Feedback — ẩn danh</h3>
+      <textarea id="feedbackContent">Slide tuần 2 hơi nhanh, mong thầy thêm ví dụ.</textarea>
+      <div class="row"><button onclick="submitFeedback()">POST /courses/{id}/feedback/</button></div>
+      <div id="feedbackBox"></div>
+    </section>
+
+    <!-- INSTRUCTOR -->
+    <section class="card tabpane" id="pane-instructor" hidden>
+      <p class="flow">Luồng giảng viên: upload tài liệu + tự phân loại tuần → duyệt (draft → approved) → dashboard lớp.</p>
+
+      <h3>Upload tài liệu &amp; phân loại tuần</h3>
+      <label>Tiêu đề tài liệu</label><input id="matTitle" value="Week 3 — Threads &amp; Scheduling">
+      <label>Đường dẫn file (PDF/PPTX)</label><input id="matPath" value="uploads/comp2030_week3_threads.pdf">
+      <div class="row">
+        <div style="flex:0 0 110px"><label>Tuần</label><input id="matWeek" type="number" value="3"></div>
+        <div style="flex:1"><label>Tên buổi học</label><input id="matLesson" value="Threads and CPU Scheduling"></div>
+      </div>
+      <div class="row"><button onclick="uploadMaterial()">POST /materials/ (tạo ở trạng thái draft)</button></div>
+
+      <h3>Quản lý tài liệu (mọi trạng thái)</h3>
+      <div class="row"><button onclick="loadManageMaterials()">GET /materials/manage</button></div>
+      <div id="manageMaterials"></div>
+
+      <h3>Thành viên khóa học</h3>
+      <div class="row">
+        <button onclick="loadMembers()">GET /courses/{id}/members</button>
+        <button class="ghost" onclick="loadMembers('student')">chỉ sinh viên</button>
+      </div>
+      <div id="membersList"></div>
+
+      <h3>Quiz của khóa học</h3>
+      <div class="row"><button onclick="loadManageQuizzes()">GET /quizzes/manage/all</button></div>
+      <div id="manageQuizzes"></div>
+      <div id="quizAttempts"></div>
+
+      <h3>Tạo quiz nhanh (1 câu trắc nghiệm)</h3>
+      <div class="row">
+        <div style="flex:1"><label>Tiêu đề quiz</label><input id="qzTitle" value="Quiz 3 — Threads"></div>
+        <div style="flex:0 0 110px"><label>Tuần</label><input id="qzWeek" type="number" value="3"></div>
+        <div style="flex:0 0 140px"><label>Điểm mỗi câu</label><input id="qzPoints" type="number" value="5"></div>
+      </div>
+      <label>Câu hỏi</label><input id="qzPrompt" value="Thread khác process ở điểm nào?">
+      <label>4 phương án (ngăn cách bằng dấu |)</label>
+      <input id="qzOptions" value="Chia sẻ không gian địa chỉ|Có PCB riêng|Không thể chạy song song|Luôn chậm hơn process">
+      <label>Đáp án đúng (phải khớp một phương án)</label>
+      <input id="qzCorrect" value="Chia sẻ không gian địa chỉ">
+      <div class="row"><button onclick="createQuiz()">POST /quizzes/ (tạo ở trạng thái draft)</button></div>
+      <div id="createQuizBox"></div>
+
+      <h3>Chấm điểm thủ công cho sinh viên</h3>
+      <div class="row">
+        <div style="flex:1"><label>Sinh viên</label><select id="gradeStudent"></select></div>
+        <div style="flex:0 0 230px"><label>Loại hoạt động</label>
+          <select id="activityType">
+            <option value="quiz">quiz (quiz tài liệu)</option>
+            <option value="comprehensive_quiz">comprehensive_quiz (quiz tổng hợp)</option>
+            <option value="active_learning">active_learning (game)</option>
+          </select>
+        </div>
+        <div style="flex:0 0 120px"><label>Điểm (1–100)</label><input id="activityPoints" type="number" value="10"></div>
+      </div>
+      <div class="row"><button onclick="awardPoints()">POST /scores/activity</button></div>
+      <div id="awardBox"></div>
+
+      <h3>Dashboard lớp</h3>
+      <div class="row">
+        <button onclick="loadStudentScores()">GET /scores/students (điểm từng SV)</button>
+        <button class="ghost" onclick="loadClassSummary()">GET /scores/class-summary</button>
+      </div>
+      <div id="studentScores"></div>
+      <div id="classSummary"></div>
+    </section>
+
+    <!-- ADMIN -->
+    <section class="card tabpane" id="pane-admin" hidden>
+      <p class="flow">Luồng admin: xem mọi khóa học → tạo khóa → phân công giảng viên / gán sinh viên → đọc feedback thô.</p>
+
+      <h3>Danh bạ tài khoản</h3>
+      <div class="row"><button onclick="loadUsers()">GET /users/</button></div>
+      <div id="usersList"></div>
+
+      <h3>Tạo khóa học</h3>
+      <div class="row">
+        <div style="flex:0 0 130px"><label>Mã</label><input id="newCode" value="COMP4040"></div>
+        <div style="flex:1"><label>Tên</label><input id="newName" value="Computer Networks"></div>
+        <div style="flex:0 0 130px"><label>Học kỳ</label><input id="newTerm" value="Fall 2026"></div>
+      </div>
+      <div class="row"><button onclick="createCourse()">POST /courses/</button></div>
+
+      <h3>Gán người dùng vào khóa học đang chọn</h3>
+      <div class="row">
+        <div style="flex:1"><label>User</label><select id="enrollUser"></select></div>
+        <div style="flex:0 0 160px"><label>Vai trò</label>
+          <select id="enrollRole">
+            <option>student</option><option>instructor</option><option>ta</option><option>admin</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <button onclick="enrollUser()">POST /courses/{id}/enroll</button>
+        <button class="danger" onclick="unenrollUser()">DELETE /enroll/{user_id}</button>
+        <button class="ghost" onclick="loadUserCourses()">GET /users/{id}/courses</button>
+      </div>
+      <div id="userCourses"></div>
+
+      <h3>Feedback thô (chỉ admin)</h3>
+      <div class="row"><button onclick="loadFeedback()">GET /courses/{id}/feedback/</button></div>
+      <div id="adminFeedback"></div>
+    </section>
+
+    <!-- SECURITY -->
+    <section class="card tabpane" id="pane-security" hidden>
+      <p class="flow">Chạy lại 24 kiểm tra phân quyền trực tiếp từ trình duyệt. Cần OTP master <code>000000</code> đang bật.</p>
+      <div class="row"><button onclick="runSecurityChecks()">▶ Chạy toàn bộ kiểm tra</button></div>
+      <div id="securityResults"></div>
+    </section>
+
+    <!-- LOG -->
+    <section class="card">
+      <h2>Nhật ký request</h2>
+      <div class="row" style="margin-top:0">
+        <button class="ghost mini" onclick="clearLog()">Xóa log</button>
+      </div>
+      <div class="log" id="log"><div class="empty">Chưa có request nào.</div></div>
+    </section>
+  </div>
+</div>
+
+<script>
+const API = location.origin;
+const SEED = [
+  {email:'admin@vinuni.edu.vn',      name:'Admin A',      role:'admin'},
+  {email:'instructor@vinuni.edu.vn', name:'Instructor A', role:'instructor'},
+  {email:'student_a@vinuni.edu.vn',  name:'Student A',    role:'student'},
+  {email:'student_b@vinuni.edu.vn',  name:'Student B',    role:'student'},
+];
+const TABS = [
+  {id:'student',    label:'🎓 Sinh viên'},
+  {id:'instructor', label:'👨‍🏫 Giảng viên'},
+  {id:'admin',      label:'🏛️ Admin'},
+  {id:'security',   label:'🛡️ Kiểm tra phân quyền'},
+];
+const state = {token:null, user:null, courseId:null, courses:[]};
+
+/* ---------- request helper ---------- */
+async function req(method, path, body, opts={}){
+  const headers = {};
+  const token = opts.token !== undefined ? opts.token : state.token;
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  if (body) headers['Content-Type'] = 'application/json';
+  const started = performance.now();
+  let res, data, text;
+  try{
+    res = await fetch(API + path, {method, headers, body: body ? JSON.stringify(body) : undefined});
+    text = await res.text();
+    try { data = text ? JSON.parse(text) : null; } catch(e){ data = text; }
+  }catch(err){
+    logEntry(method, path, 0, Math.round(performance.now()-started), {error:String(err)});
+    return {ok:false, status:0, data:{detail:String(err)}};
+  }
+  logEntry(method, path, res.status, Math.round(performance.now()-started), data);
+  return {ok:res.ok, status:res.status, data};
+}
+
+function logEntry(method, path, status, ms, data){
+  const log = document.getElementById('log');
+  if (log.querySelector('.empty')) log.innerHTML = '';
+  const cls = status >= 500 ? 's5' : status >= 400 ? 's4' : status >= 200 ? 's2' : '';
+  const d = document.createElement('details');
+  d.innerHTML = `<summary><span class="code ${cls}">${status || 'ERR'}</span>
+      <b>${method}</b> ${escapeHtml(path)} <span style="color:var(--muted)">${ms}ms</span></summary>
+      <pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
+  log.prepend(d);
+}
+function clearLog(){ document.getElementById('log').innerHTML = '<div class="empty">Chưa có request nào.</div>'; }
+function escapeHtml(s){ return String(s ?? '').replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function show(elId, html){ document.getElementById(elId).innerHTML = html; }
+function detailOf(r){ return escapeHtml(typeof r.data?.detail === 'string' ? r.data.detail : JSON.stringify(r.data)); }
+
+/* ---------- health / tabs / accounts ---------- */
+async function checkHealth(){
+  try{
+    const res = await fetch(API + '/health');
+    const ok = res.ok;
+    document.getElementById('healthDot').className = 'dot ' + (ok ? 'ok' : 'err');
+    document.getElementById('healthText').textContent = ok ? 'API online' : 'API lỗi';
+  }catch(e){
+    document.getElementById('healthDot').className = 'dot err';
+    document.getElementById('healthText').textContent = 'API offline';
+  }
+}
+function renderTabs(){
+  document.getElementById('tabs').innerHTML = TABS.map((t,i) =>
+    `<button class="${i===0?'active':''}" data-tab="${t.id}" onclick="selectTab('${t.id}')">${t.label}</button>`).join('');
+}
+function selectTab(id){
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
+  TABS.forEach(t => document.getElementById('pane-' + t.id).hidden = (t.id !== id));
+}
+function renderAccounts(){
+  document.getElementById('accounts').innerHTML = SEED.map(a => `
+    <div class="acct">
+      <div><b>${a.name}</b><span>${a.email} · ${a.role}</span></div>
+      <button class="mini" onclick="quickLogin('${a.email}')">Vào</button>
+    </div>`).join('');
+}
+
+/* ---------- auth ---------- */
+async function quickLogin(email){
+  document.getElementById('otpEmail').value = email;
+  await req('POST','/auth/request-otp',{email});
+  const r = await req('POST','/auth/verify-otp',{email, otp:'000000'});
+  if (!r.ok){ show('otpInfo', `❌ ${detailOf(r)} — có thể OTP master đã tắt, hãy dùng mã thật.`); return; }
+  applySession(r.data);
+}
+async function requestOtp(){
+  const email = document.getElementById('otpEmail').value.trim();
+  const r = await req('POST','/auth/request-otp',{email});
+  if (!r.ok){ show('otpInfo', `❌ ${detailOf(r)}`); return; }
+  const d = r.data;
+  let msg = `✅ provider=<b>${escapeHtml(d.email_provider)}</b> · gửi thật: ${d.delivered ? 'có' : 'không'} · hết hạn ${d.expires_in_minutes} phút<br>${escapeHtml(d.delivery_detail || '')}`;
+  if (d.dev_otp){ msg += `<br>Mã dev: <b>${d.dev_otp}</b> (đã tự điền)`; document.getElementById('otpCode').value = d.dev_otp; }
+  show('otpInfo', msg);
+}
+async function verifyOtp(){
+  const email = document.getElementById('otpEmail').value.trim();
+  const otp = document.getElementById('otpCode').value.trim();
+  const r = await req('POST','/auth/verify-otp',{email, otp});
+  if (!r.ok){ show('otpInfo', `❌ ${detailOf(r)}`); return; }
+  applySession(r.data);
+}
+function applySession(payload){
+  state.token = payload.access_token;
+  state.user = payload.user;
+  document.getElementById('userPill').textContent = `${payload.user.name} · ${payload.user.role}`;
+  show('otpInfo', `✅ Đã đăng nhập, JWT chứa ${payload.user.enrolled_courses.length} khóa học.`);
+  const firstTab = payload.user.role === 'student' ? 'student'
+                 : payload.user.role === 'admin' ? 'admin' : 'instructor';
+  selectTab(firstTab);
+  loadCourses();
+}
+async function callMe(){
+  if (!requireLogin()) return;
+  const r = await req('GET','/auth/me');
+  show('otpInfo', r.ok ? `✅ ${escapeHtml(r.data.email)} · ${escapeHtml(r.data.role)}` : `❌ ${detailOf(r)}`);
+}
+function logout(){
+  state.token = null; state.user = null; state.courseId = null; state.courses = [];
+  document.getElementById('userPill').textContent = 'chưa đăng nhập';
+  document.getElementById('courseSelect').innerHTML = '';
+  show('otpInfo','Đã đăng xuất.');
+}
+function requireLogin(){
+  if (!state.token){ alert('Hãy đăng nhập trước.'); return false; }
+  return true;
+}
+function requireCourse(){
+  if (!requireLogin()) return false;
+  if (!state.courseId){ alert('Hãy chọn một khóa học.'); return false; }
+  return true;
+}
+
+/* ---------- courses ---------- */
+async function loadCourses(){
+  if (!requireLogin()) return;
+  const r = await req('GET','/courses/');
+  if (!r.ok){ show('courseInfo', `❌ ${detailOf(r)}`); return; }
+  state.courses = r.data;
+  const sel = document.getElementById('courseSelect');
+  sel.innerHTML = r.data.map(c => `<option value="${c.id}">${escapeHtml(c.code)} — ${escapeHtml(c.name)}</option>`).join('');
+  if (r.data.length){ state.courseId = r.data[0].id; onCourseChange(); }
+  else show('courseInfo','Tài khoản này chưa được gán khóa học nào.');
+  if (state.user?.role === 'admin') loadUsers();
+}
+function onCourseChange(){
+  state.courseId = document.getElementById('courseSelect').value;
+  const c = state.courses.find(x => x.id === state.courseId);
+  show('courseInfo', c ? `id: <code>${c.id}</code><br>GV: ${escapeHtml(c.instructor_name || '—')}` : '');
+}
+
+/* ---------- student ---------- */
+async function loadStudentMaterials(){
+  if (!requireCourse()) return;
+  const r = await req('GET', `/courses/${state.courseId}/materials/`);
+  if (!r.ok){ show('studentMaterials', `<p class="empty">❌ ${detailOf(r)}</p>`); return; }
+  show('studentMaterials', materialTable(r.data, false));
+}
+async function loadNotes(){
+  if (!requireCourse()) return;
+  const r = await req('GET', `/courses/${state.courseId}/notes`);
+  if (!r.ok){ show('notesList', `<p class="empty">❌ ${detailOf(r)}</p>`); return; }
+  if (!r.data.length){ show('notesList','<p class="empty">Chưa có ghi chú nào.</p>'); return; }
+  show('notesList', `<table><tr><th>Tiêu đề</th><th>Nội dung</th><th>Cập nhật</th><th></th></tr>` +
+    r.data.map(n => `<tr>
+      <td>${escapeHtml(n.title)}</td>
+      <td>${escapeHtml(n.content).slice(0,120)}</td>
+      <td>${escapeHtml(String(n.updated_at || '').slice(0,19))}</td>
+      <td>
+        <button class="ghost mini" onclick="readNote('${n.id}')">Đọc</button>
+        <button class="danger mini" onclick="deleteNote('${n.id}')">Xóa</button>
+      </td></tr>`).join('') + '</table>');
+}
+async function createNote(){
+  if (!requireCourse()) return;
+  const r = await req('POST', `/courses/${state.courseId}/notes`, {
+    title: document.getElementById('noteTitle').value,
+    content: document.getElementById('noteContent').value
+  });
+  if (r.ok) loadNotes(); else show('notesList', `<p class="empty">❌ ${detailOf(r)}</p>`);
+}
+async function readNote(id){
+  const r = await req('GET', `/notes/${id}`);
+  alert(r.ok ? `${r.data.title}\n\n${r.data.content}` : `Bị từ chối (${r.status}): ${r.data?.detail}`);
+}
+async function deleteNote(id){
+  const r = await req('DELETE', `/notes/${id}`);
+  if (r.ok || r.status === 204) loadNotes();
+}
+async function loadMyScore(){
+  if (!requireCourse()) return;
+  const r = await req('GET', `/courses/${state.courseId}/scores/my-score`);
+  if (!r.ok){ show('scoreBox', `<p class="empty">❌ ${detailOf(r)}</p>`); return; }
+  const s = r.data;
+  show('scoreBox', `<table>
+    <tr><th>Streak</th><th>Quiz tài liệu</th><th>Quiz tổng hợp</th><th>Active learning</th><th>Tổng</th></tr>
+    <tr><td>${s.streak_days} ngày</td><td>${s.quiz_score}</td><td>${s.comprehensive_score}</td>
+        <td>${s.active_score}</td><td><b>${s.total_score ?? 0}</b></td></tr></table>`);
+}
+async function awardPoints(){
+  if (!requireCourse()) return;
+  const sid = document.getElementById('gradeStudent').value;
+  if (!sid){ alert('Bấm "chỉ sinh viên" ở mục Thành viên khóa học để nạp danh sách trước.'); return; }
+  const r = await req('POST', `/courses/${state.courseId}/scores/activity`, {
+    student_id: sid,
+    activity_type: document.getElementById('activityType').value,
+    points_earned: Number(document.getElementById('activityPoints').value)
+  });
+  show('awardBox', r.ok
+    ? `<p class="hint">✅ +${r.data.points_added} (${escapeHtml(r.data.activity_added)}) · streak ${r.data.streak_days} ngày</p>`
+    : `<p class="empty">❌ ${detailOf(r)}</p>`);
+  if (r.ok) loadStudentScores();
+}
+async function submitFeedback(){
+  if (!requireCourse()) return;
+  const r = await req('POST', `/courses/${state.courseId}/feedback/`, {
+    content: document.getElementById('feedbackContent').value
+  });
+  show('feedbackBox', r.ok
+    ? `<p class="hint">✅ ${escapeHtml(r.data.message)} (${escapeHtml(r.data.submitted_at)})</p>`
+    : `<p class="empty">❌ ${detailOf(r)}</p>`);
+}
+
+/* ---------- student: quiz ---------- */
+async function loadQuizzes(keepResult){
+  if (!requireCourse()) return;
+  if (!keepResult){ show('quizRunner',''); show('quizResult',''); }
+  const r = await req('GET', `/courses/${state.courseId}/quizzes/`);
+  if (!r.ok){ show('quizList', `<p class="empty">❌ ${detailOf(r)}</p>`); return; }
+  if (!r.data.length){ show('quizList','<p class="empty">Chưa có quiz nào được phát hành.</p>'); return; }
+  show('quizList', `<table><tr><th>Tuần</th><th>Quiz</th><th>Loại</th><th>Số câu</th><th>Điểm/câu</th><th>Lần làm</th><th>Điểm cao nhất</th><th></th></tr>` +
+    r.data.map(q => `<tr>
+      <td>${q.week_number ?? '—'}</td><td>${escapeHtml(q.title)}</td>
+      <td><span class="badge">${q.quiz_type}</span></td>
+      <td>${q.question_count}</td><td>${q.points_per_question}</td>
+      <td>${q.my_attempts}</td><td>${q.my_best_score ?? '—'}</td>
+      <td><button class="mini" onclick="openQuiz('${q.id}')">Làm bài</button></td></tr>`).join('') + '</table>');
+}
+async function openQuiz(quizId){
+  show('quizResult','');
+  const r = await req('GET', `/courses/${state.courseId}/quizzes/${quizId}`);
+  if (!r.ok){ show('quizRunner', `<p class="empty">❌ ${detailOf(r)}</p>`); return; }
+  const q = r.data;
+  const leaked = JSON.stringify(q).includes('correct_answer');
+  show('quizRunner', `<div class="card" style="margin-top:12px">
+    <h3 style="margin-top:0">${escapeHtml(q.title)}</h3>
+    <p class="hint">${leaked ? '❌ Payload có lộ đáp án!' : '✅ Payload không chứa đáp án đúng — server chấm sau khi nộp.'}</p>
+    ${q.questions.map(qq => `<div style="margin:14px 0">
+      <b>${qq.position}. ${escapeHtml(qq.prompt)}</b>
+      ${qq.question_type === 'multiple_choice'
+        ? (qq.options || []).map(o => `<label style="display:flex;gap:8px;align-items:center;color:var(--text);margin:4px 0">
+             <input type="radio" name="q_${qq.id}" value="${escapeHtml(o)}" style="width:auto"> ${escapeHtml(o)}</label>`).join('')
+        : `<input name="q_${qq.id}" placeholder="Nhập câu trả lời">`}
+    </div>`).join('')}
+    <button onclick="submitQuiz('${q.id}')">Nộp bài</button>
+  </div>`);
+}
+async function submitQuiz(quizId){
+  const runner = document.getElementById('quizRunner');
+  const answers = [];
+  const seen = new Set();
+  runner.querySelectorAll('[name^="q_"]').forEach(el => {
+    const qid = el.name.slice(2);
+    if (el.type === 'radio'){
+      if (el.checked){ answers.push({question_id:qid, answer:el.value}); seen.add(qid); }
+    } else if (!seen.has(qid)){
+      answers.push({question_id:qid, answer:el.value}); seen.add(qid);
+    }
+  });
+  const r = await req('POST', `/courses/${state.courseId}/quizzes/${quizId}/submit`, {answers});
+  if (!r.ok){ show('quizResult', `<p class="empty">❌ ${detailOf(r)}</p>`); return; }
+  const d = r.data;
+  show('quizResult', `<table>
+    <tr><th>Lần làm</th><th>Đúng</th><th>Điểm</th><th>Điểm được cộng</th><th>Cộng vào</th><th>Streak</th></tr>
+    <tr><td>#${d.attempt_number}</td><td>${d.correct_count}/${d.total_questions}</td>
+        <td>${d.score}/${d.max_score}</td><td><b>${d.points_awarded}</b></td>
+        <td>${escapeHtml(d.scored_component)}</td><td>${d.streak_days ?? '—'}</td></tr></table>
+    ${d.note ? `<p class="hint">ℹ️ ${escapeHtml(d.note)}</p>` : ''}
+    <div class="row"><button class="ghost mini" onclick="loadAttempts('${quizId}')">Xem chi tiết từng câu</button>
+    <button class="ghost mini" onclick="loadMyScore()">Cập nhật điểm của tôi</button></div>`);
+  loadQuizzes(true);
+}
+async function loadAttempts(quizId){
+  const r = await req('GET', `/courses/${state.courseId}/quizzes/${quizId}/my-attempts`);
+  if (!r.ok) return;
+  const last = r.data[r.data.length - 1];
+  if (!last) return;
+  show('quizResult', document.getElementById('quizResult').innerHTML +
+    `<table style="margin-top:10px"><tr><th>#</th><th>Câu hỏi</th><th>Bạn trả lời</th><th>Kết quả</th><th>Giải thích</th></tr>` +
+    last.answers.map(a => `<tr><td>${a.position}</td><td>${escapeHtml(a.prompt)}</td>
+      <td>${escapeHtml(a.submitted_answer || '—')}</td>
+      <td><span class="badge ${a.is_correct ? 'pass' : 'fail'}">${a.is_correct ? 'ĐÚNG' : 'SAI'}</span><br>
+          <span style="font-size:11px;color:var(--muted)">đáp án: ${escapeHtml(a.correct_answer)}</span></td>
+      <td style="font-size:12px">${escapeHtml(a.explanation || '—')}</td></tr>`).join('') + '</table>');
+}
+async function loadTopics(){
+  if (!requireCourse()) return;
+  const r = await req('GET', `/courses/${state.courseId}/quizzes/topics`);
+  if (!r.ok){ show('topicList', `<p class="empty">❌ ${detailOf(r)}</p>`); return; }
+  const d = r.data;
+  show('topicList', d.topics.map(t => `<label style="display:flex;gap:8px;align-items:center;margin:4px 0;color:${t.available?'var(--text)':'var(--muted)'}">
+      <input type="checkbox" class="topicBox" value="${t.week_number}" ${t.available ? '' : 'disabled'} style="width:auto">
+      Tuần ${t.week_number} — ${escapeHtml(t.lesson_title)}
+      ${t.available ? '' : `<span class="badge">🔒 ${escapeHtml(t.locked_reason)}</span>`}
+    </label>`).join('') +
+    `<div class="row"><button onclick="createComprehensive()">POST /quizzes/comprehensive</button></div>`);
+}
+async function createComprehensive(){
+  const weeks = [...document.querySelectorAll('.topicBox:checked')].map(b => Number(b.value));
+  const r = await req('POST', `/courses/${state.courseId}/quizzes/comprehensive`, {week_numbers:weeks, questions_per_topic:2});
+  if (!r.ok){ show('quizRunner', `<p class="empty">❌ ${detailOf(r)}</p>`); return; }
+  openQuiz(r.data.quiz_id);
+}
+
+/* ---------- instructor ---------- */
+async function loadManageQuizzes(){
+  if (!requireCourse()) return;
+  show('quizAttempts','');
+  const r = await req('GET', `/courses/${state.courseId}/quizzes/manage/all`);
+  if (!r.ok){ show('manageQuizzes', `<p class="empty">❌ ${detailOf(r)}</p>`); return; }
+  if (!r.data.length){ show('manageQuizzes','<p class="empty">Khóa học chưa có quiz nào.</p>'); return; }
+  show('manageQuizzes', `<table><tr><th>Tuần</th><th>Quiz</th><th>Nguồn</th><th>Trạng thái</th><th>Câu</th><th>Lượt nộp</th><th>Duyệt</th></tr>` +
+    r.data.map(q => `<tr>
+      <td>${q.week_number ?? '—'}</td><td>${escapeHtml(q.title)}</td>
+      <td><span class="badge">${q.source}</span></td>
+      <td><span class="badge ${q.status === 'published' ? 'approved' : q.status === 'draft' ? 'draft' : 'archived'}">${q.status}</span></td>
+      <td>${q.question_count}</td><td>${q.attempt_count}</td>
+      <td>
+        <button class="mini" onclick="setQuizStatus('${q.id}','published')">publish</button>
+        <button class="ghost mini" onclick="setQuizStatus('${q.id}','draft')">draft</button>
+        <button class="ghost mini" onclick="loadQuizAttempts('${q.id}')">bài nộp</button>
+      </td></tr>`).join('') + '</table>');
+}
+async function setQuizStatus(quizId, status){
+  const r = await req('PATCH', `/courses/${state.courseId}/quizzes/${quizId}/status`, {status});
+  if (!r.ok) alert(`Bị từ chối (${r.status}): ${r.data?.detail}`);
+  loadManageQuizzes();
+}
+async function loadQuizAttempts(quizId){
+  const r = await req('GET', `/courses/${state.courseId}/quizzes/${quizId}/attempts`);
+  if (!r.ok){ show('quizAttempts', `<p class="empty">❌ ${detailOf(r)}</p>`); return; }
+  if (!r.data.length){ show('quizAttempts','<p class="empty">Chưa có sinh viên nào nộp bài.</p>'); return; }
+  show('quizAttempts', `<table><tr><th>Sinh viên</th><th>Lần</th><th>Đúng</th><th>Điểm</th><th>Được cộng</th><th>Nộp lúc</th></tr>` +
+    r.data.map(a => `<tr><td>${escapeHtml(a.name)}</td><td>#${a.attempt_number}</td>
+      <td>${a.correct_count}/${a.total_questions}</td><td>${a.score}/${a.max_score}</td>
+      <td>${a.points_awarded}</td><td>${escapeHtml(a.submitted_at.slice(0,19))}</td></tr>`).join('') + '</table>');
+}
+async function createQuiz(){
+  if (!requireCourse()) return;
+  const options = document.getElementById('qzOptions').value.split('|').map(o => o.trim()).filter(Boolean);
+  const r = await req('POST', `/courses/${state.courseId}/quizzes/`, {
+    title: document.getElementById('qzTitle').value,
+    week_number: Number(document.getElementById('qzWeek').value),
+    points_per_question: Number(document.getElementById('qzPoints').value),
+    questions: [{
+      question_type: 'multiple_choice',
+      prompt: document.getElementById('qzPrompt').value,
+      options,
+      correct_answer: document.getElementById('qzCorrect').value
+    }]
+  });
+  show('createQuizBox', r.ok
+    ? `<p class="hint">✅ Đã tạo "${escapeHtml(r.data.title)}" ở trạng thái <b>${r.data.status}</b> — cần bấm publish mới đến tay sinh viên.</p>`
+    : `<p class="empty">❌ ${detailOf(r)}</p>`);
+  if (r.ok) loadManageQuizzes();
+}
+
+function materialTable(rows, manage){
+  if (!rows.length) return '<p class="empty">Không có tài liệu nào hiển thị.</p>';
+  return `<table><tr><th>Tuần</th><th>Buổi học</th><th>Tài liệu</th><th>Trạng thái</th><th>AI</th>${manage?'<th>Duyệt</th>':''}</tr>` +
+    rows.map(m => `<tr>
+      <td>${m.week_number ?? '—'}</td>
+      <td>${escapeHtml(m.lesson_title || '—')}</td>
+      <td>${escapeHtml(m.title)}</td>
+      <td><span class="badge ${m.status}">${m.status}</span></td>
+      <td>${m.approved_for_ai ? '✅' : '—'}</td>
+      ${manage ? `<td>
+        <button class="mini" onclick="setStatus('${m.id}','approved')">approved</button>
+        <button class="ghost mini" onclick="setStatus('${m.id}','draft')">draft</button>
+        <button class="ghost mini" onclick="setStatus('${m.id}','archived')">archived</button>
+      </td>` : ''}
+    </tr>`).join('') + '</table>';
+}
+async function loadManageMaterials(){
+  if (!requireCourse()) return;
+  const r = await req('GET', `/courses/${state.courseId}/materials/manage`);
+  if (!r.ok){ show('manageMaterials', `<p class="empty">❌ ${detailOf(r)}</p>`); return; }
+  show('manageMaterials', materialTable(r.data, true));
+}
+async function uploadMaterial(){
+  if (!requireCourse()) return;
+  const r = await req('POST', `/courses/${state.courseId}/materials/`, {
+    title: document.getElementById('matTitle').value,
+    file_path: document.getElementById('matPath').value,
+    week_number: Number(document.getElementById('matWeek').value),
+    lesson_title: document.getElementById('matLesson').value
+  });
+  if (r.ok) loadManageMaterials(); else show('manageMaterials', `<p class="empty">❌ ${detailOf(r)}</p>`);
+}
+async function setStatus(materialId, status){
+  const r = await req('PATCH', `/courses/${state.courseId}/materials/${materialId}/status`, {status});
+  if (r.ok) loadManageMaterials(); else alert(`Bị từ chối (${r.status}): ${r.data?.detail}`);
+}
+async function loadMembers(role){
+  if (!requireCourse()) return;
+  const q = role ? `?role=${role}` : '';
+  const r = await req('GET', `/courses/${state.courseId}/members${q}`);
+  if (!r.ok){ show('membersList', `<p class="empty">❌ ${detailOf(r)}</p>`); return; }
+  if (!r.data.length){ show('membersList','<p class="empty">Khóa học chưa có thành viên.</p>'); return; }
+  const students = r.data.filter(m => m.role === 'student');
+  document.getElementById('gradeStudent').innerHTML =
+    students.map(m => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('');
+  show('membersList', `<table><tr><th>Tên</th><th>Email</th><th>Vai trò trong khóa</th><th>Ngày gán</th></tr>` +
+    r.data.map(m => `<tr><td>${escapeHtml(m.name)}</td><td>${escapeHtml(m.email)}</td>
+      <td><span class="badge">${m.role}</span></td>
+      <td>${escapeHtml(String(m.enrolled_at || '').slice(0,19))}</td></tr>`).join('') + '</table>');
+}
+async function loadStudentScores(){
+  if (!requireCourse()) return;
+  const r = await req('GET', `/courses/${state.courseId}/scores/students`);
+  if (!r.ok){ show('studentScores', `<p class="empty">❌ ${detailOf(r)}</p>`); return; }
+  const d = r.data;
+  if (!d.students.length){ show('studentScores','<p class="empty">Khóa học chưa có sinh viên.</p>'); return; }
+  show('studentScores', `<table>
+    <tr><th>#</th><th>Sinh viên</th><th>Streak</th><th>Quiz</th><th>Tổng hợp</th><th>Active</th><th>Tổng điểm</th><th>Hoạt động cuối</th></tr>` +
+    d.students.map((s2,i) => `<tr><td>${i+1}</td>
+      <td>${escapeHtml(s2.name)}<br><span style="color:var(--muted);font-size:11px">${escapeHtml(s2.email)}</span></td>
+      <td>${s2.streak_days}</td><td>${s2.quiz_score}</td><td>${s2.comprehensive_score}</td>
+      <td>${s2.active_score}</td><td><b>${s2.total_score}</b></td>
+      <td>${escapeHtml(s2.last_active_date || '—')}</td></tr>`).join('') + '</table>' +
+    `<p class="hint">🔒 ${escapeHtml(d.privacy_guarantee)}</p>`);
+}
+async function loadClassSummary(){
+  if (!requireCourse()) return;
+  const r = await req('GET', `/courses/${state.courseId}/scores/class-summary`);
+  if (!r.ok){ show('classSummary', `<p class="empty">❌ ${detailOf(r)}</p>`); return; }
+  const s = r.data;
+  show('classSummary', `<table>
+    <tr><th>SV có hoạt động</th><th>TB quiz</th><th>TB quiz tổng hợp</th><th>TB streak</th></tr>
+    <tr><td>${s.total_active_students}</td><td>${s.average_quiz_score}</td>
+        <td>${s.average_comprehensive_score}</td><td>${s.average_streak_days}</td></tr></table>
+    <p class="hint">🔒 ${escapeHtml(s.privacy_guarantee)}</p>`);
+}
+
+/* ---------- admin ---------- */
+async function loadUsers(){
+  if (!requireLogin()) return;
+  const r = await req('GET','/users/');
+  if (!r.ok){ show('usersList', `<p class="empty">❌ ${detailOf(r)}</p>`); return; }
+  show('usersList', `<table><tr><th>Tên</th><th>Email</th><th>Vai trò</th><th>ID</th></tr>` +
+    r.data.map(u => `<tr><td>${escapeHtml(u.name)}</td><td>${escapeHtml(u.email)}</td>
+      <td><span class="badge">${u.role}</span></td>
+      <td style="font-family:var(--mono);font-size:11px">${u.id}</td></tr>`).join('') + '</table>');
+  document.getElementById('enrollUser').innerHTML =
+    r.data.map(u => `<option value="${u.id}">${escapeHtml(u.name)} (${u.role})</option>`).join('');
+}
+async function createCourse(){
+  if (!requireLogin()) return;
+  const r = await req('POST','/courses/',{
+    code: document.getElementById('newCode').value,
+    name: document.getElementById('newName').value,
+    term: document.getElementById('newTerm').value
+  });
+  if (r.ok) loadCourses();
+}
+async function enrollUser(){
+  if (!requireCourse()) return;
+  await req('POST', `/courses/${state.courseId}/enroll`, {
+    user_id: document.getElementById('enrollUser').value,
+    role: document.getElementById('enrollRole').value
+  });
+}
+async function unenrollUser(){
+  if (!requireCourse()) return;
+  const uid = document.getElementById('enrollUser').value;
+  const r = await req('DELETE', `/courses/${state.courseId}/enroll/${uid}`);
+  if (!r.ok && r.status !== 204) alert(`Không gỡ được (${r.status}): ${r.data?.detail}`);
+  loadUserCourses();
+}
+async function loadUserCourses(){
+  if (!requireLogin()) return;
+  const uid = document.getElementById('enrollUser').value;
+  const r = await req('GET', `/users/${uid}/courses`);
+  if (!r.ok){ show('userCourses', `<p class="empty">❌ ${detailOf(r)}</p>`); return; }
+  const d = r.data;
+  if (!d.courses.length){ show('userCourses', `<p class="empty">${escapeHtml(d.user.name)} chưa được gán khóa học nào.</p>`); return; }
+  show('userCourses', `<p class="hint">Khóa học của <b>${escapeHtml(d.user.name)}</b> (${escapeHtml(d.user.role)}):</p>
+    <table><tr><th>Mã</th><th>Tên</th><th>Học kỳ</th><th>Vai trò trong khóa</th></tr>` +
+    d.courses.map(c => `<tr><td>${escapeHtml(c.code)}</td><td>${escapeHtml(c.name)}</td>
+      <td>${escapeHtml(c.term)}</td><td><span class="badge">${c.enrolled_role}</span></td></tr>`).join('') + '</table>');
+}
+async function loadFeedback(){
+  if (!requireCourse()) return;
+  const r = await req('GET', `/courses/${state.courseId}/feedback/`);
+  if (!r.ok){ show('adminFeedback', `<p class="empty">❌ ${detailOf(r)}</p>`); return; }
+  if (!r.data.length){ show('adminFeedback','<p class="empty">Chưa có feedback.</p>'); return; }
+  show('adminFeedback', `<table><tr><th>Thời điểm</th><th>Nội dung</th><th>Danh tính</th></tr>` +
+    r.data.map(f => `<tr><td>${escapeHtml(f.submitted_at.slice(0,19))}</td>
+      <td>${escapeHtml(f.content)}</td><td>không lưu</td></tr>`).join('') + '</table>');
+}
+
+/* ---------- security checks ---------- */
+const COURSE_A = '10000000-0000-0000-0000-000000000001';
+const QUIZ_PUBLISHED = '30000000-0000-0000-0000-000000000001';
+const QUIZ_DRAFT = '30000000-0000-0000-0000-000000000002';
+const COURSE_B = '10000000-0000-0000-0000-000000000002';
+
+async function tokenFor(email){
+  await req('POST','/auth/request-otp',{email}, {token:null});
+  const r = await req('POST','/auth/verify-otp',{email, otp:'000000'}, {token:null});
+  return r.ok ? r.data.access_token : null;
+}
+async function runSecurityChecks(){
+  show('securityResults','<p class="empty">Đang chạy…</p>');
+  const tokens = {};
+  for (const a of SEED){
+    tokens[a.email] = await tokenFor(a.email);
+    if (!tokens[a.email]){
+      show('securityResults','<p class="empty">❌ Không lấy được JWT bằng OTP master. Đặt ALLOW_DEV_MASTER_OTP=true để chạy bộ kiểm tra này.</p>');
+      return;
+    }
+  }
+  const A = tokens['student_a@vinuni.edu.vn'], B = tokens['student_b@vinuni.edu.vn'];
+  const I = tokens['instructor@vinuni.edu.vn'], AD = tokens['admin@vinuni.edu.vn'];
+  const results = [];
+  const add = (name, pass, detail) => results.push({name, pass, detail});
+
+  let r = await req('GET', `/courses/${COURSE_A}`, null, {token:A});
+  add('Student A truy cập Course A', r.status === 200, `HTTP ${r.status}`);
+
+  r = await req('GET', `/courses/${COURSE_B}`, null, {token:A});
+  add('Student A bị chặn ở Course B', r.status === 403, `HTTP ${r.status}`);
+
+  r = await req('GET', `/courses/${COURSE_A}`, null, {token:B});
+  add('Student B bị chặn ở Course A', r.status === 403, `HTTP ${r.status}`);
+
+  r = await req('GET', `/courses/${COURSE_B}`, null, {token:AD});
+  add('Admin xem được mọi khóa học', r.status === 200, `HTTP ${r.status}`);
+
+  r = await req('GET', `/courses/${COURSE_A}/materials/`, null, {token:A});
+  const onlyApproved = r.ok && r.data.every(m => m.status === 'approved' && m.approved_for_ai);
+  add('Sinh viên chỉ thấy tài liệu approved', onlyApproved, `${r.ok ? r.data.length : 0} tài liệu trả về`);
+
+  r = await req('GET', `/courses/${COURSE_A}/materials/manage`, null, {token:A});
+  add('Sinh viên bị chặn ở endpoint manage', r.status === 403, `HTTP ${r.status}`);
+
+  // note privacy
+  const created = await req('POST', `/courses/${COURSE_A}/notes`, {title:'RLS probe', content:'secret'}, {token:A});
+  const noteId = created.ok ? created.data.id : null;
+  if (noteId){
+    const rb = await req('GET', `/notes/${noteId}`, null, {token:B});
+    add('Student B không đọc được note của Student A', rb.status === 403, `HTTP ${rb.status}`);
+    const ri = await req('GET', `/notes/${noteId}`, null, {token:I});
+    add('Giảng viên không đọc được note sinh viên', ri.status === 403, `HTTP ${ri.status}`);
+    const ra = await req('GET', `/notes/${noteId}`, null, {token:AD});
+    add('Admin không đọc được note sinh viên', ra.status === 403, `HTTP ${ra.status}`);
+    const ro = await req('GET', `/notes/${noteId}`, null, {token:A});
+    add('Chủ sở hữu đọc được note của chính mình', ro.status === 200, `HTTP ${ro.status}`);
+    await req('DELETE', `/notes/${noteId}`, null, {token:A});
+  } else {
+    add('Tạo note thử nghiệm', false, `HTTP ${created.status}`);
+  }
+
+  r = await req('GET', `/courses/${COURSE_A}/scores/class-summary`, null, {token:I});
+  const noNotes = r.ok && !JSON.stringify(r.data).toLowerCase().includes('secret');
+  add('Dashboard không chứa nội dung note', noNotes, `HTTP ${r.status}`);
+
+  r = await req('GET', `/courses/${COURSE_A}/feedback/`, null, {token:I});
+  add('Giảng viên không đọc được feedback thô', r.status === 403, `HTTP ${r.status}`);
+
+  r = await req('GET', `/courses/${COURSE_A}/members`, null, {token:A});
+  add('Sinh viên không xem được danh sách lớp', r.status === 403, `HTTP ${r.status}`);
+
+  r = await req('GET', `/courses/${COURSE_A}/scores/students`, null, {token:A});
+  add('Sinh viên không xem được điểm cả lớp', r.status === 403, `HTTP ${r.status}`);
+
+  r = await req('GET', `/courses/${COURSE_B}/members`, null, {token:I});
+  add('Giảng viên không xem được lớp mình không dạy', r.status === 403, `HTTP ${r.status}`);
+
+  r = await req('GET', '/users/00000000-0000-0000-0000-000000000003/courses', null, {token:A});
+  add('Sinh viên không tra được khóa học của người khác', r.status === 403, `HTTP ${r.status}`);
+
+  r = await req('POST', `/courses/${COURSE_A}/scores/activity`,
+      {student_id:'00000000-0000-0000-0000-000000000003', activity_type:'quiz', points_earned:100}, {token:A});
+  add('Sinh viên không tự cộng điểm được', r.status === 403, `HTTP ${r.status}`);
+
+  r = await req('POST', `/courses/${COURSE_A}/scores/activity`,
+      {student_id:'00000000-0000-0000-0000-000000000003', activity_type:'quiz', points_earned:9999}, {token:I});
+  add('Điểm vượt ngưỡng bị từ chối (không tràn cột)', r.status === 422, `HTTP ${r.status}`);
+
+  r = await req('GET', `/courses/${COURSE_A}/quizzes/${QUIZ_PUBLISHED}`, null, {token:A});
+  const hidesAnswers = r.ok && !JSON.stringify(r.data).includes('correct_answer');
+  add('Đề quiz gửi cho SV không chứa đáp án', hidesAnswers, `HTTP ${r.status}`);
+
+  r = await req('GET', `/courses/${COURSE_A}/quizzes/${QUIZ_DRAFT}`, null, {token:A});
+  add('SV không mở được quiz nháp', r.status === 403, `HTTP ${r.status}`);
+
+  r = await req('PATCH', `/courses/${COURSE_A}/quizzes/${QUIZ_DRAFT}/status`, {status:'published'}, {token:A});
+  add('SV không publish được quiz', r.status === 403, `HTTP ${r.status}`);
+
+  r = await req('GET', `/courses/${COURSE_A}/quizzes/${QUIZ_PUBLISHED}/manage`, null, {token:A});
+  add('SV không xem được bản có đáp án', r.status === 403, `HTTP ${r.status}`);
+
+  r = await req('POST', `/courses/${COURSE_A}/quizzes/comprehensive`, {week_numbers:[1]}, {token:A});
+  add('Quiz tổng hợp cần ít nhất 2 chủ đề', r.status === 400, `HTTP ${r.status}`);
+
+  r = await req('POST', `/courses/${COURSE_A}/quizzes/comprehensive`, {week_numbers:[1,99]}, {token:A});
+  add('Chủ đề chưa học bị khóa', r.status === 403, `HTTP ${r.status}`);
+
+  const passed = results.filter(x => x.pass).length;
+  show('securityResults', `<p class="hint"><b>${passed}/${results.length}</b> kiểm tra đạt.</p>
+    <table><tr><th>Kiểm tra</th><th>Kết quả</th><th>Chi tiết</th></tr>` +
+    results.map(x => `<tr><td>${escapeHtml(x.name)}</td>
+      <td><span class="badge ${x.pass ? 'pass' : 'fail'}">${x.pass ? 'PASS' : 'FAIL'}</span></td>
+      <td>${escapeHtml(x.detail)}</td></tr>`).join('') + '</table>');
+}
+
+/* ---------- init ---------- */
+renderTabs(); renderAccounts(); checkHealth();
+</script>
+</body>
+</html>
