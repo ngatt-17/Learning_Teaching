@@ -110,12 +110,26 @@ CREATE TABLE private_notes (
 
 -- Bật Row-Level Security
 ALTER TABLE private_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE private_notes FORCE ROW LEVEL SECURITY;
 
 -- Policy: chỉ owner mới đọc/sửa/xóa được note của mình
 -- App phải set: SET app.current_user_id = '<user_id>' trước mỗi query
 CREATE POLICY note_owner_only ON private_notes
     FOR ALL
-    USING (owner_id = current_setting('app.current_user_id')::UUID);
+    USING (owner_id = current_setting('app.current_user_id', true)::UUID);
+
+-- Tạo role cecs_app (non-superuser) để app kết nối và enforce RLS
+DO $$
+BEGIN
+   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'cecs_app') THEN
+      CREATE ROLE cecs_app WITH LOGIN PASSWORD '0000';
+   END IF;
+END
+$$;
+
+GRANT ALL ON SCHEMA public TO cecs_app;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO cecs_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO cecs_app;
 
 -- ============================================================
 -- 10. BẢNG: student_scores
