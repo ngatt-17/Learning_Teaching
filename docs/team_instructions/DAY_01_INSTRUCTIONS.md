@@ -45,13 +45,11 @@ For each example, distinguish an announcement, deployed service, and evaluated l
 - Sketch the three user flows, including course-grounded answers, private notes, reviewed practice, and course insights.
 - Recommend the simplest useful pilot version. Put extra product ideas in a short “later” list.
 - Suggest initial technologies for the interface, backend/data, and AI/retrieval. Explain your reasoning and uncertainties briefly; detailed architecture is not required.
-- Add a short note on how learning-impact evidence and possible [QS Reimagine Education Awards](https://www.qs.com/conferences/reimagine/apply) participation could support VinUni's QS-100 ambition. Verify relevant award criteria; keep award preparation outside the pilot build.
+- Add a short note on how the proposed ideas can possibly win QS-related awards like [QS Reimagine Education Awards](https://www.qs.com/conferences/reimagine/apply) to support VinUni's QS-100 ambition. 
 
 ### 2.4. Interests and contribution
 
-State your relevant experience, two preferred work areas, one learning goal, support needed, and a concrete Day 2 contribution. You should be able to explain your recommendations and own the work you propose.
-
-List sources you read and briefly disclose AI assistance and what you verified. Discuss personal circumstances privately with the Mentor.
+State your relevant experience, two preferred work areas, one learning goal, support needed, and a concrete Day 2 contribution. You should be able to explain your recommendations and own the work you propose. Discuss personal circumstances privately with the Mentor.
 
 ## 3. Joint assignment — draft the product delivery plan
 
