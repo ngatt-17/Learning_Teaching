@@ -256,3 +256,161 @@ def test_18_award_rejects_student_outside_the_course():
     )
     assert res.status_code == 404, res.text
 
+
+# =========================================================================
+# TEST SUITE 7: QUIZ ENGINE — server-side grading, no client-supplied score
+# =========================================================================
+
+STUDENT_C_EMAIL = "student_c@vinuni.edu.vn"
+QUIZ_PUBLISHED = "30000000-0000-0000-0000-000000000001"   # Week 1, published, 3 questions
+QUIZ_DRAFT = "30000000-0000-0000-0000-000000000002"       # Week 2, AI draft awaiting review
+
+
+def _quiz_questions(token, quiz_id=QUIZ_PUBLISHED):
+    res = client.get(f"/courses/{COURSE_A_ID}/quizzes/{quiz_id}", headers=auth_headers(token))
+    assert res.status_code == 200, res.text
+    return res.json()["questions"]
+
+
+def test_19_student_quiz_list_excludes_drafts():
+    token = get_token_for(STUDENT_A_EMAIL)
+    res = client.get(f"/courses/{COURSE_A_ID}/quizzes/", headers=auth_headers(token))
+    assert res.status_code == 200
+    statuses = {q["status"] for q in res.json()}
+    assert statuses == {"published"}, f"Non-published quiz exposed: {res.json()}"
+
+
+def test_20_student_quiz_payload_hides_correct_answers():
+    token = get_token_for(STUDENT_A_EMAIL)
+    questions = _quiz_questions(token)
+    assert questions, "Seed quiz has no questions"
+    for q in questions:
+        assert "correct_answer" not in q
+        assert "explanation" not in q
+
+
+def test_21_student_cannot_open_draft_quiz():
+    token = get_token_for(STUDENT_A_EMAIL)
+    res = client.get(f"/courses/{COURSE_A_ID}/quizzes/{QUIZ_DRAFT}", headers=auth_headers(token))
+    assert res.status_code == 403, res.text
+
+
+def test_22_submission_is_graded_server_side_and_awards_points():
+    token = get_token_for(STUDENT_C_EMAIL)
+    questions = _quiz_questions(token)
+    # Two correct, one deliberately wrong.
+    answers = [
+        {"question_id": questions[0]["id"], "answer": "Một chương trình đang chạy"},
+        {"question_id": questions[1]["id"], "answer": "MMU"},
+        {"question_id": questions[2]["id"], "answer": "  pcb "},  # short answer, case/space tolerant
+    ]
+    before = client.get(f"/courses/{COURSE_A_ID}/scores/my-score", headers=auth_headers(token)).json()
+    res = client.post(f"/courses/{COURSE_A_ID}/quizzes/{QUIZ_PUBLISHED}/submit",
+                      headers=auth_headers(token), json={"answers": answers})
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["correct_count"] == 2 and body["total_questions"] == 3
+    assert body["score"] == 10.0 and body["max_score"] == 15.0
+
+    after = client.get(f"/courses/{COURSE_A_ID}/scores/my-score", headers=auth_headers(token)).json()
+    if body["attempt_number"] == 1:
+        assert body["points_awarded"] == 10.0
+        assert after["quiz_score"] == before["quiz_score"] + 10.0
+    else:
+        # Re-runs of the suite: the first attempt already happened, so nothing is awarded.
+        assert body["points_awarded"] == 0.0
+        assert after["quiz_score"] == before["quiz_score"]
+
+
+def test_23_replaying_a_quiz_awards_no_extra_points():
+    token = get_token_for(STUDENT_C_EMAIL)
+    questions = _quiz_questions(token)
+    perfect = [
+        {"question_id": questions[0]["id"], "answer": "Một chương trình đang chạy"},
+        {"question_id": questions[1]["id"], "answer": "PCB"},
+        {"question_id": questions[2]["id"], "answer": "PCB"},
+    ]
+    before = client.get(f"/courses/{COURSE_A_ID}/scores/my-score", headers=auth_headers(token)).json()
+    res = client.post(f"/courses/{COURSE_A_ID}/quizzes/{QUIZ_PUBLISHED}/submit",
+                      headers=auth_headers(token), json={"answers": perfect})
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["attempt_number"] > 1
+    assert body["correct_count"] == 3
+    assert body["points_awarded"] == 0.0, "A replay must not farm points"
+    after = client.get(f"/courses/{COURSE_A_ID}/scores/my-score", headers=auth_headers(token)).json()
+    assert after["quiz_score"] == before["quiz_score"]
+
+
+def test_24_student_cannot_publish_a_quiz():
+    token = get_token_for(STUDENT_A_EMAIL)
+    res = client.patch(f"/courses/{COURSE_A_ID}/quizzes/{QUIZ_DRAFT}/status",
+                       headers=auth_headers(token), json={"status": "published"})
+    assert res.status_code == 403, res.text
+
+
+def test_25_instructor_cannot_publish_a_quiz_with_no_questions():
+    token = get_token_for(INSTRUCTOR_EMAIL)
+    created = client.post(f"/courses/{COURSE_A_ID}/quizzes/", headers=auth_headers(token),
+                          json={"title": "Empty quiz", "week_number": 9, "questions": []})
+    assert created.status_code == 201, created.text
+    quiz_id = created.json()["id"]
+    assert created.json()["status"] == "draft", "A new quiz must start as draft"
+
+    res = client.patch(f"/courses/{COURSE_A_ID}/quizzes/{quiz_id}/status",
+                       headers=auth_headers(token), json={"status": "published"})
+    assert res.status_code == 400, res.text
+
+    # An untaken quiz can be removed, so the suite leaves no residue behind.
+    cleanup = client.delete(f"/courses/{COURSE_A_ID}/quizzes/{quiz_id}", headers=auth_headers(token))
+    assert cleanup.status_code == 204, cleanup.text
+
+
+def test_26_comprehensive_quiz_requires_two_unlocked_topics():
+    token = get_token_for(STUDENT_A_EMAIL)
+    one = client.post(f"/courses/{COURSE_A_ID}/quizzes/comprehensive",
+                      headers=auth_headers(token), json={"week_numbers": [1]})
+    assert one.status_code == 400, one.text
+
+    locked = client.post(f"/courses/{COURSE_A_ID}/quizzes/comprehensive",
+                         headers=auth_headers(token), json={"week_numbers": [1, 99]})
+    assert locked.status_code == 403, locked.text
+
+
+def test_27_comprehensive_quiz_is_private_to_its_student():
+    owner = get_token_for(STUDENT_A_EMAIL)
+    created = client.post(f"/courses/{COURSE_A_ID}/quizzes/comprehensive",
+                          headers=auth_headers(owner), json={"week_numbers": [1, 2]})
+    assert created.status_code == 201, created.text
+    quiz_id = created.json()["quiz_id"]
+
+    assert client.get(f"/courses/{COURSE_A_ID}/quizzes/{quiz_id}",
+                      headers=auth_headers(owner)).status_code == 200
+
+    other = get_token_for(STUDENT_C_EMAIL)  # same course, different student
+    res = client.get(f"/courses/{COURSE_A_ID}/quizzes/{quiz_id}", headers=auth_headers(other))
+    assert res.status_code == 403, res.text
+
+    assert client.delete(f"/courses/{COURSE_A_ID}/quizzes/{quiz_id}",
+                         headers=auth_headers(other)).status_code == 403
+    assert client.delete(f"/courses/{COURSE_A_ID}/quizzes/{quiz_id}",
+                         headers=auth_headers(owner)).status_code == 204
+
+
+def test_29_quiz_with_attempts_cannot_be_deleted():
+    token = get_token_for(INSTRUCTOR_EMAIL)
+    res = client.delete(f"/courses/{COURSE_A_ID}/quizzes/{QUIZ_PUBLISHED}", headers=auth_headers(token))
+    assert res.status_code == 409, res.text
+
+
+def test_28_instructor_sees_quiz_attempts_and_correct_answers():
+    token = get_token_for(INSTRUCTOR_EMAIL)
+    manage = client.get(f"/courses/{COURSE_A_ID}/quizzes/{QUIZ_PUBLISHED}/manage",
+                        headers=auth_headers(token))
+    assert manage.status_code == 200, manage.text
+    assert all("correct_answer" in q for q in manage.json()["questions"])
+
+    attempts = client.get(f"/courses/{COURSE_A_ID}/quizzes/{QUIZ_PUBLISHED}/attempts",
+                          headers=auth_headers(token))
+    assert attempts.status_code == 200, attempts.text
+    assert isinstance(attempts.json(), list)
