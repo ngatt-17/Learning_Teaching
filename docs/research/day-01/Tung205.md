@@ -10,25 +10,25 @@
 ## 1.1 Instructor, Student, and CECS Administrator Journeys
 
 - **Instructor / Teaching Assistant (TA):**
-  1. *Sign-in & Access:* Sign in using an approved VinUni email and a one-time password (OTP) code. Microsoft SSO is not required for the pilot phase.
-  2. *Upload Course Materials:* Access assigned courses and upload textbooks, lecture slides, quiz banks, assignments, or other supported instructional materials.
-  3. *Manage Material Lifecycle:* Monitor document processing status (`processing / ready / failed / retry`); approve processed materials for student access; unpublish or remove materials whenever necessary.
-  4. *Generate & Publish Practice Activities:* Select source materials, topics, difficulty levels, question types, and quantities to generate draft practice activities; review, edit, and publish them to students.
-  5. *Track & Enhance Teaching Quality:* Review course activity metrics, student practice results, engagement levels, and common learning misconceptions to refine teaching strategies promptly.
+  1. *Sign in:* Log in using a VinUni email and a one-time code (OTP). Microsoft SSO is not needed for the pilot.
+  2. *Upload Course Materials:* Open assigned courses and upload lecture slides, textbooks, problem sets, and syllabi.
+  3. *Manage Content:* Check file status (`processing / ready / failed / retry`). Approve processed materials so students can access them. Hide or remove files anytime.
+  4. *Create & Publish Practice:* Choose topics and difficulty levels to let AI draft practice questions. Review, edit, and publish them to students.
+  5. *Track Progress:* View course activity numbers, quiz results, and common student mistakes to adjust upcoming lectures.
 
 - **Student:**
-  1. *Sign-in & Course Access:* Sign in with a verified VinUni email and open assigned courses.
-  2. *Grounded Q&A Learning:* Read approved course materials; ask questions grounded strictly in these materials. Inspect supporting source citations down to exact locations (`inspectable citations`); receive a transparent notification when evidence is insufficient (`insufficient-evidence behavior`) rather than ungrounded hallucinations.
-  3. *Optional Web Search Expansion:* Optionally expand discussions to the public web; the system must clearly label sources as `Course` vs. `Web`, provide external citations, and explicitly state that the response extends beyond approved course content.
-  4. *Private Study Space:* Annotate reading materials, independently write or use AI to generate personal notes and self-study questions; retain full control to save, edit, or delete them.
-  5. *Formative Practice:* Complete published practice activities and receive instant formative feedback accompanied by reference citations to course materials.
-  6. *Independent Feedback Channel:* Submit explicit feedback regarding teaching quality or platform experience through a dedicated, separate feedback channel.
+  1. *Sign in:* Log in with a VinUni email and open enrolled courses.
+  2. *Ask Questions (Grounded Q&A):* Read course materials and ask questions. The AI answers using only approved documents, showing clickable citations with page numbers. If the answer is not in the material, the AI clearly states that it does not have enough evidence.
+  3. *Optional Web Search:* Turn on web search when needed. The system clearly labels whether information came from the course or the web.
+  4. *Private Study Space:* Write personal notes, highlight texts, and create self-study questions. Students have full control to save, edit, or delete their notes.
+  5. *Practice & Feedback:* Solve published quizzes and get instant feedback explaining why an answer is right or wrong, linked back to course slides.
+  6. *Submit Feedback:* Send direct feedback about the course or platform through a separate feedback channel.
 
 - **CECS Administrator:**
-  1. *Role & Course Allocation:* Assign instructors/TAs and students to their respective courses with strict server-side authorization.
-  2. *Course Readiness Checks:* Inspect readiness indicators across courses: material upload volume, processing and approval status, and practice review/publication progress.
-  3. *Engagement Monitoring & Support:* Observe overall course and college engagement trends, common academic difficulties, and explicitly submitted feedback to guide strategic institutional improvements.
-  4. *Aggregate Insights Boundary:* Access macro-level statistical insights only; strictly prohibited from accessing students' private study spaces.
+  1. *Manage Users:* Assign instructors, TAs, and students to their courses with server-side permissions.
+  2. *Check Course Readiness:* Check how many materials each course has uploaded, processed, and approved before classes begin.
+  3. *Review Overall Trends:* View college-wide numbers on platform usage, common student challenges, and submitted feedback.
+  4. *Privacy Protection:* Admins only see high-level statistics; they can never view any student's private notes.
 
 ```mermaid
 flowchart TD
@@ -123,34 +123,34 @@ flowchart TD
 
 ---
 
-## 1.2 Distinguishing Private Notes from Course Materials, Submitted Feedback, and Dashboards
+## 1.2 Distinguishing Private Notes from Course Materials, Feedback, and Dashboards
 
-The core security principle of the project is **"Private means private"**:
-- This boundary must be strictly enforced via **server-side authorization**, not merely hidden on the client UI.
-- Private student notes are a mandatory core feature of the pilot, strictly distinct from optional student file uploads (which are deferred to the "Later List").
-- **Regarding RAG (Retrieval-Augmented Generation):** The project strictly prohibits injecting private notes into the **Shared Retrieval Index** (class-wide RAG). However, notes may be leveraged via **User-isolated RAG / In-Context Prompting** strictly for that individual student inside their Private Study Space (e.g., generating personal self-check flashcards) without data leakage.
+The core security rule of the project is **"Private means private"**:
+- Enforced on the **server and database**, not just hidden on the screen.
+- Private student notes are a required core feature for the pilot.
+- **Rules on AI Search (RAG):** Private notes are **never** put into the shared class search. However, a student can use AI inside their own private space (for example, to make personal flashcards from their notes) without sharing that data with anyone else.
 
-| Evaluation Dimension | Private Student Notes & Annotations | Approved Course Materials | Submitted Explicit Feedback | Dashboards & Analytics Insights |
+| Data Type | Private Student Notes | Approved Course Materials | Submitted Feedback | Dashboards & Analytics |
 | :--- | :--- | :--- | :--- | :--- |
-| **Data Nature** | Personal annotations, self-notes, and study questions generated or written by the student. | Syllabi, lecture slides, textbooks, problem sets uploaded by instructors. | Deliberate, structured input submitted by users regarding teaching or platform experience. | Aggregated system metrics: completion rates, topic difficulty, common misconceptions. |
-| **Access Control** | **Strictly Owner-Only Access**. | Course instructors, TAs, and enrolled students. | Assigned instructors and CECS administrators. | Instructors (course-level) and CECS administrators (college-level). |
-| **Used for RAG / Retrieval?** | • **Shared RAG (Class-wide): STRICTLY NO**.<br>• **User-Isolated RAG: PERMITTED** strictly within the owner's private space. | **YES**, but only after the instructor explicitly grants **Approved** status. | **NO**. Kept strictly in dedicated feedback storage. | **NO**. Dashboards only aggregate metadata. |
-| **Presence in Logs / Dashboards?** | **STRICTLY PROHIBITED**. Excluded from ordinary logs, API exports, and dashboards. | Processing status visible on dashboards (ready, failed, approved). | Displayed in dedicated feedback queues for faculty review. | Displays aggregated, anonymized trends only; zero personal notes. |
-| **Trust & UI Guarantees** | Prominent UI privacy statement assuring zero surveillance by faculty/admin. | Verifiable source attribution with inspectable page/line citations. | Submitted via a dedicated channel separate from learning chat. | Predefined data boundaries documented before implementation. |
+| **What is it?** | Personal notes, highlights, and self-study questions written by the student. | Syllabi, slides, textbooks, and quizzes uploaded by teachers. | Direct student comments about teaching or the platform. | Overall system numbers: completion rates, difficult topics, and common errors. |
+| **Who can see it?** | **Only the student who wrote it.** | Teachers, TAs, and enrolled students in that course. | Assigned teachers and CECS administrators. | Teachers (course stats) and Admins (college stats). |
+| **Used for AI Search?** | • Shared Class Search: **NO**.<br>• Private Self-Study: **YES** (only for that student). | **YES**, but only after the teacher approves the file. | **NO**. Stored separately in a feedback box. | **NO**. Dashboards only show summary statistics. |
+| **Shown in Logs or Dashboards?** | **NEVER**. Blocked from normal server logs, reports, and dashboards. | File status is shown (processing, ready, approved). | Shown in a private feedback inbox for teachers/admins. | Shows anonymous trends only; zero personal notes. |
+| **User Guarantee** | Clear notice that teachers and admins cannot see private notes. | Answers always link back to exact source pages or slides. | Kept separate from regular learning chats. | Clear data rules defined before building the app. |
 
 ---
 
-## 1.3 Two Measurable Pilot Success Signals and One Key User Assumption
+## 1.3 Two Measurable Success Signals and One Key User Assumption
 
 The pilot will run across 1–4 courses in Fall 2026 (Launch date: **5 October 2026**):
 
 - **Two Measurable Success Signals:**
-  1. *Grounded AI Adoption & Citation Trust:* At least **70% of enrolled students** interact with the Grounded Chatbot weekly; at least **35% of chatbot queries result in inspectable citation clicks** (verifying source attribution); practice completion rate exceeds **60%** with formative feedback; and at least **70% of students** actively utilize their Private Study Space.
-  2. *Instructor Adoption & Content Readiness:* **100% of core course materials** are uploaded, processed, and approved before weekly lectures; instructors actively review, edit, and publish at least **75% of AI-generated practice drafts** within 48 hours rather than ignoring them or authoring questions from scratch.
+  1. *Student Engagement:* At least **70% of enrolled students** use the grounded chatbot weekly; at least **35% of chatbot questions lead to citation clicks** (checking the source); quiz completion rate exceeds **60%**; and at least **70% of students** use their Private Study Space.
+  2. *Teacher Readiness:* **100% of core materials** are uploaded, processed, and approved before lectures; teachers review and publish at least **75% of AI-generated practice drafts** within 48 hours instead of starting from scratch.
 
-- **One Key User Assumption to Validate:**
-  - *Privacy Trust Assumption:* "Students will only genuinely use the AI platform to reveal their conceptual gaps, ask fundamental questions, and draft personal study notes if they possess absolute trust in the **'Private means private'** guarantee—believing that instructors, TAs, and administrators cannot monitor, inspect, or grade them based on their private space."  
-  *(Validation method: Conduct post-week-1 user interviews and verify server-side authorization logs to confirm that security enforcement eliminates student hesitation).*
+- **One Key User Assumption to Test:**
+  - *Privacy Trust:* "Students will only use the AI to ask about their weaknesses and keep personal study notes if they completely trust that teachers and admins cannot see or grade their private notes."  
+  *(How to test: Interview students after week 1 and check server logs to confirm that private notes are strictly protected).*
 
 ---
 
@@ -159,70 +159,70 @@ The pilot will run across 1–4 courses in Fall 2026 (Launch date: **5 October 2
 > Focus area: **Computer Science & Information Technology (IT/CS)** education across leading global institutions. Distinguishing between: *Announcement* / *Deployed Service* / *Evaluated Learning Outcome*.  
 > Verification date: **14 September 2026**.
 
-| Application & Source | IT/CS Pillar & Problem Addressed | Key Pedagogical & Technical Features | Empirical Evidence & Limitations | Distinct Takeaway for CECS |
+| Application & Source | Course Area & Problem | Key Features | Real Evidence & Limits | Takeaway for CECS |
 | :--- | :--- | :--- | :--- | :--- |
-| **1. CS50.ai / The CS50 Duck**<br>*(Harvard University & Yale University)*<br><br>🔗 [CS50.ai Platform](https://cs50.ai)<br>📄 [SIGCSE 2024 / arXiv:2401.07409](https://arxiv.org/abs/2401.07409)<br>📅 *03/2024* • 👁️ *14/09/2026* | **Pillar:** Hands-on Coding & Real-time IDE Debugging.<br><br>**Problem:** Students struggle with syntax/logic bugs late at night without TA support; generic ChatGPT solves exercises directly, eroding problem-solving abilities. | • Embedded natively into VS Code (`cs50.dev`).<br>• Enforces **Pedagogical Guardrails**: strictly applies Socratic questioning to guide debugging; refuses to output ready-made code.<br>• Instructor dashboard to customize pedagogical rules and monitor common bottlenecks. | **Status:** *Deployed & Evaluated Outcome*.<br><br>**Evidence:** Scaled across thousands of CS50 students at Harvard, Yale, and edX; SIGCSE 2024 paper proves faster autonomous debugging and reduced TA night shifts while preserving academic integrity.<br><br>**Limitations:** Risk of over-hinting when prompted aggressively; high token inference costs during peak assignment deadlines. | • **Strict Pedagogical Guardrails:** The CECS chatbot must serve as a reflective guide, strictly refusing to write code solutions for programming lab exercises.<br>• Implement code style checking and compiler error explanations mapped directly to lecture slides. |
-| **2. Maizey**<br>*(University of Michigan)*<br><br>🔗 [U-Mich Maizey Platform](https://its.umich.edu/computing/ai/maizey)<br>📄 [U-Mich ITS AI Initiatives](https://genai.umich.edu/)<br>📅 *2023 – 2024* • 👁️ *14/09/2026* | **Pillar:** Course-Grounded RAG across Core IT/CS Curricula (Computer Networks, OS, Computer Architecture, Discrete Math).<br><br>**Problem:** Courses involve hundreds of pages of bespoke slides and academic readings; generic LLMs hallucinate or deliver generic answers irrelevant to professors' exam scopes. | • Institutional GenAI platform integrated with Canvas LMS.<br>• Enables instructors across **all disciplines** to upload syllabi, slides, and research papers to spin up a custom course chatbot in minutes.<br>• Grounded strictly in uploaded materials with page-level citations. | **Status:** *Deployed Service & University-wide Evaluation*.<br><br>**Evidence:** Deployed across hundreds of courses; high student trust driven by answers aligning directly with professors' syllabi and lecture slides.<br><br>**Limitations:** Vector search performance degrades if instructors upload complex tables or mathematical formulas stored as low-resolution images. | • **Course-Grounded RAG beyond coding:** Validates that the CECS AI Learning Hub must support theoretical IT/CS subjects (Networks, OS, Database Systems), not just coding labs.<br>• Enforce mandatory citation checks and `insufficient-evidence` warnings. |
-| **3. CMU Open Learning Initiative (OLI) & Cognitive Tutors**<br>*(Carnegie Mellon University)*<br><br>🔗 [CMU OLI Platform](https://oli.cmu.edu/)<br>📄 [Simon Initiative Learning Engineering](https://www.cmu.edu/simon/)<br>📅 *GenAI Update: 2024* • 👁️ *14/09/2026* | **Pillar:** Discrete Math, Calculus & Probability for Data Science.<br><br>**Problem:** In multi-step quantitative problem solving, students only receive binary Right/Wrong scores, obscuring the exact intermediate reasoning step where their mental model failed (e.g., Bayes theorem, recursive logic). | • Cognitive Science foundation: Maps knowledge into fine-grained **Knowledge Components**.<br>• Analyzes intermediate derivation steps to identify conceptual flaws.<br>• Generates **Adaptive Practice** tasks targeting specific student knowledge gaps. | **Status:** *Deployed & Rigorously Evaluated Outcome* (Global Learning XPRIZE winner).<br><br>**Evidence:** CMU studies demonstrate that students using OLI master math and statistics concepts in half the time compared to traditional instruction.<br><br>**Limitations:** High initial authoring effort required from domain experts to construct the Knowledge Component matrix. | • **Step-level Misconception Tracking:** Aggregate student practice results to identify recurring misconceptions in Discrete Math and Algorithm Analysis, feeding insights to faculty dashboards.<br>• Facilitate instructor authoring of leveled practice problems. |
-| **4. PyTutor**<br>*(MIT RAISE, Georgia State University & Quinsigamond Community College)*<br><br>🔗 [MIT RAISE PyTutor](https://raise.mit.edu/research/research-projects/pytutor/)<br>📅 *2023 – 2024* • 👁️ *14/09/2026* | **Pillar:** Multi-source Context Private Tutoring.<br><br>**Problem:** Students studying at home lack cohesion between classroom slides, current in-progress code, and past self-study inquiries. | • Interactive workspace combining executable code and an interactive whiteboard.<br>• Context-aware AI synthesizes 3 sources: **(1) Course materials, (2) Current student work, and (3) Prior interaction history**.<br>• Fine-tuned with reinforcement learning to provide constructive pedagogical dialogue. | **Status:** *Deployed Service* across partner institutions in CS1 courses.<br><br>**Evidence:** Students report feeling supported by an empathetic 1-on-1 tutor, reducing hesitation when seeking foundational help.<br><br>**Limitations:** Risks leaking private student data if history is aggregated into shared vector indexes; long-term grade impact data still pending. | • **Context-Rich Private Study Space:** Allow AI to leverage current notes and practice work to generate personalized self-quizzes.<br>• **Strict Privacy Boundary:** Enforce *User-isolated RAG* (*"Private means private"*), never pooling individual notes into shared course retrieval. |
-| **5. AcaWriter**<br>*(University of Technology Sydney & University of Edinburgh)*<br><br>🔗 [AcaWriter Platform](https://acawriter.uts.edu.au/)<br>📄 [UTS Connected Intelligence Centre](https://cic.uts.edu.au/tools/acawriter/)<br>📅 *2023 – 2024* • 👁️ *14/09/2026* | **Pillar:** Research Practice, Technical Reporting & Capstone Projects.<br><br>**Problem:** Computing students frequently write unstructured technical reports lacking empirical evidence, counter-arguments, or resort to uncritical AI text generation leading to plagiarism. | • **Rhetorical Moves Analytics** analyzes scientific argumentation structures.<br>• Does not ghostwrite; highlights key structural components: Problem Framing, Empirical Evidence, Hypotheses, Limitations.<br>• Provides automated formative feedback prompting students to strengthen logical rigor. | **Status:** *Deployed Service & Evaluated Learning Outcome* across UTS and Edinburgh.<br><br>**Evidence:** Extensively evaluated in engineering capstones and postgraduate research; significantly enhances argumentation clarity and citation transparency.<br><br>**Limitations:** Sub-optimal parsing for papers with dense embedded mathematical formulas or inline code snippets. | • **Formative Feedback for Technical Writing:** CECS can offer automated structural feedback for capstone projects and research methodology reports.<br>• Trains students in scientific rigor, transparent citation standards, and academic integrity. |
+| **1. CS50.ai / The CS50 Duck**<br>*(Harvard University & Yale University)*<br><br>[CS50.ai Platform](https://cs50.ai)<br>Paper: [SIGCSE 2024 / arXiv:2401.07409](https://arxiv.org/abs/2401.07409)<br>Source Date: 03/2024 • Access Date: 14/09/2026 | **Focus:** Coding labs & debugging.<br><br>**Problem:** Students get stuck on bugs late at night without TA help; generic ChatGPT writes code for them, hurting their ability to learn. | • Built directly into VS Code (`cs50.dev`).<br>• Teaching rules: AI gives hints and asks guiding questions to help students find bugs, refusing to write ready-made solutions.<br>• Teacher dashboard to set rules and see common student bottlenecks. | **Status:** *Deployed & Evaluated Outcome*.<br><br>**Evidence:** Used by thousands of students at Harvard and Yale. Research shows students debug faster without needing late-night TA shifts.<br><br>**Limits:** AI may give away too much if asked repeatedly; high API costs during deadline weeks. | • **Never write full code solutions for students:** The chatbot should act as a helpful guide, explaining error messages and pointing back to lecture slides instead of doing the homework. |
+| **2. Maizey**<br>*(University of Michigan)*<br><br>[U-Mich Maizey Platform](https://its.umich.edu/computing/ai/maizey)<br>Initiative: [U-Mich ITS AI Initiatives](https://genai.umich.edu/)<br>Source Date: 2023 – 2024 • Access Date: 14/09/2026 | **Focus:** Theory courses (Networks, OS, Discrete Math).<br><br>**Problem:** Courses have hundreds of pages of slides and readings; generic AI makes up fake facts or gives answers that don't match the exam. | • Campus-wide AI tool connected to Canvas LMS.<br>• Professors upload slides and readings to create a custom course chatbot in minutes.<br>• Answers strictly from course documents with exact page numbers. | **Status:** *Deployed Service & Evaluation*.<br><br>**Evidence:** Deployed across hundreds of courses. High student trust because answers match lecture slides and exam outlines.<br><br>**Limits:** Hard to read complex tables or math formulas saved as image files. | • **Support all CS subjects, not just coding:** Validates that the CECS AI Learning Hub must support theory courses using lecture slides with exact page citations and warnings when evidence is missing. |
+| **3. CMU Open Learning Initiative (OLI) & Cognitive Tutors**<br>*(Carnegie Mellon University)*<br><br>[CMU OLI Platform](https://oli.cmu.edu/)<br>Initiative: [Simon Initiative Learning Engineering](https://www.cmu.edu/simon/)<br>Source Date: GenAI Update 2024 • Access Date: 14/09/2026 | **Focus:** Math, Calculus & Probability for Data Science.<br><br>**Problem:** In multi-step math problems, students only see a final Right/Wrong score, not knowing which exact reasoning step went wrong. | • Breaks problems down step by step to find where the student made a logic error.<br>• Automatically suggests practice questions to fix that specific gap. | **Status:** *Deployed & Rigorously Evaluated*.<br><br>**Evidence:** Proven in university studies: students master math concepts in half the usual time.<br><br>**Limits:** Takes a lot of effort for professors to design all problem steps initially. | • **Group common mistakes together:** Analyze student quiz errors to see where most students get confused, and show these trends on teacher dashboards to guide class lectures. |
+| **4. PyTutor**<br>*(MIT RAISE, Georgia State University & Quinsigamond Community College)*<br><br>[MIT RAISE PyTutor](https://raise.mit.edu/research/research-projects/pytutor/)<br>Source Date: 2023 – 2024 • Access Date: 14/09/2026 | **Focus:** Personal self-study for introductory programming.<br><br>**Problem:** Students studying at home have trouble connecting lecture slides with their current code and past questions. | • Interactive workspace with code editor and whiteboard.<br>• AI tutor uses 3 inputs: course slides, student's current code, and past questions.<br>• Gives supportive, step-by-step guidance. | **Status:** *Deployed Service* in CS1 courses.<br><br>**Evidence:** Students feel supported by an empathetic tutor and are less shy about asking basic questions.<br><br>**Limits:** Student code and questions could leak if saved into shared class search. | • **Private Study Space with strict protection:** Give students personal tools that use their notes and practice work, while keeping their private data strictly isolated (*"Private means private"*). |
+| **5. AcaWriter**<br>*(University of Technology Sydney & University of Edinburgh)*<br><br>[AcaWriter Platform](https://acawriter.uts.edu.au/)<br>Center: [UTS Connected Intelligence Centre](https://cic.uts.edu.au/tools/acawriter/)<br>Source Date: 2023 – 2024 • Access Date: 14/09/2026 | **Focus:** Capstone reports and technical writing.<br><br>**Problem:** Students write messy technical reports without clear evidence or copy-paste AI text, risking plagiarism. | • Checks writing structure: problem statement, evidence, testing results, and limitations.<br>• Gives feedback on how to make arguments clearer without writing the text for them. | **Status:** *Deployed Service & Evaluated Outcome*.<br><br>**Evidence:** Used in engineering and research courses; improves report clarity and proper citation habits.<br><br>**Limits:** Does not parse complex code blocks well. | • **Help students write clear reports:** Provide automated feedback on report structure for capstone and lab reports, teaching students how to write clear, honest research papers. |
 
 ---
 
-## 2.1 Five Core Non-Overlapping Takeaways for CECS AI Learning Hub
+## 2.1 Five Core Takeaways for CECS AI Learning Hub
 
-1. **Non-Negotiable Pedagogical Guardrails (from CS50.ai):** In programming lab contexts, the CECS chatbot must act as a Socratic sparring partner, strictly declining to generate complete code solutions to cultivate students' independent problem-solving skills.
-2. **Standardized Grounded RAG Across All IT Disciplines (from Maizey):** The platform must accommodate theoretical computing subjects (Computer Networks, Operating Systems, Theory of Computation) via verified course document retrieval (`Approved Materials`) with inspectable page-level citations.
-3. **Step-by-Step Misconception Diagnosis & Adaptive Practice (from CMU OLI):** Go beyond binary grading by decomposing complex quantitative and algorithmic problems into reasoning steps, surfacing aggregate common misconceptions to faculty dashboards.
-4. **Strict Isolation in Multi-Source Private Tutoring (from PyTutor):** Provide a rich, personalized self-study environment powered by personal context, while strictly safeguarding data with server-side isolation (*"Private means private"*).
-5. **Formative Feedback for Scientific Rigor & Argumentation (from AcaWriter):** Scaffold technical report writing and capstone documentation with automated rhetorical analysis, training students to produce verifiable, research-grade work.
+1. **Guide students with hints, never write code for them (CS50.ai):** For programming exercises, the chatbot should give helpful hints and ask guiding questions rather than writing complete code solutions, helping students develop independent problem-solving skills.
+2. **Support all computer science courses, not just coding (Maizey):** Support theory courses (such as Networks, Operating Systems, and Discrete Math) by searching approved lecture slides and textbooks with exact page numbers.
+3. **Diagnose step-by-step logic errors (CMU OLI):** Break down math and logic problems into steps to see where students get confused, and summarize common errors for teachers.
+4. **Keep personal tutoring workspaces private (PyTutor):** Give students personal study tools that use their notes and past questions, while keeping private notes strictly isolated from the class (*"Private means private"*).
+5. **Help students write clear technical reports (AcaWriter):** Guide students to organize their capstone and lab reports with clear problem statements, evidence, and proper citations.
 
 ---
 
 # 3. Proposed Product Concepts & Technical Architecture for CECS
 
-## 3.1 Three User Experience Flows Integrating Active Learning Methodologies
+## 3.1 Three User Experience Flows for Active Learning
 
-The system harmonizes three distinct personas with contemporary pedagogical techniques, including the **Feynman Technique, Active Recall, Spaced Repetition, and Semantic Mindmapping**:
+The system supports three user groups and helps students study effectively using active learning techniques:
 
 ### 1. Student Experience Flow
-- **Grounded Q&A & Semantic Mindmapping:**
-  - Students open enrolled courses and access approved instructional materials.
-  - Ask questions grounded strictly in official materials with inspectable citations (`Inspectable Citations`). When source evidence is insufficient, the AI issues an honest limitation disclaimer (`insufficient-evidence`).
-  - The system automatically extracts core lecture concepts to construct an **Interactive Semantic Mindmap**, enabling students to visualize hierarchical knowledge dependencies (e.g., *Pointers $\rightarrow$ Dynamic Memory Allocation $\rightarrow$ Linked Lists* in Data Structures).
-- **Private Study Space with Active Learning Tools:**
-  - **The Feynman Active-Recall Room:** Students invert roles by choosing to *"Teach the AI"*. The student explains a complex technical concept (e.g., *Central Limit Theorem, TCP 3-Way Handshake, Dijkstra's Algorithm*) in their own words. The AI adopts the persona of a curious learner, asking probing questions to unmask logical gaps or superficial memorization.
-  - **Automated Active Recall & Spaced Repetition Flashcards:** The AI auto-generates retrieval-practice flashcards derived from the student's personal notes and lecture slides for spaced self-testing.
-  - **Smart Exam Simulator & Study Guide:** Generates high-yield study outlines aligned with Course Learning Outcomes (CLOs), alongside mock exams offering formative feedback linked directly back to lecture slides.
-- **Privacy Guarantee:** All personal notes, Feynman practice transcripts, and self-test records remain strictly encrypted and inaccessible to instructors or administrators (*"Private means private"*).
+- **Ask Questions with Source Links:**
+  - Students open their courses and read approved lecture slides and textbooks.
+  - Ask questions and get answers based strictly on course documents, with clickable page numbers. If the documents do not have the answer, the AI clearly warns the student.
+  - A clean visual mindmap shows how core lecture concepts connect with each other.
+- **Private Study Tools:**
+  - **Teach-the-AI Mode (Feynman Technique):** Students explain a concept in their own words. The AI plays the role of a curious student, asking follow-up questions to check if the student truly understands.
+  - **Smart Review Flashcards:** AI turns personal notes into flashcards for quick daily review.
+  - **Exam Practice:** Generates practice questions matching course topics, with explanations pointing back to the lecture slides.
+- **Privacy Guarantee:** All personal notes and practice history are strictly private to the student (*"Private means private"*).
 
 ### 2. Instructor / TA Experience Flow
-- **Curated Material Ingestion & Approval:** Instructors upload slides, textbooks, and quizzes. The system automatically structures content, extracts key terms, and verifies parsing before the instructor grants **Approval**.
-- **Bloom's Taxonomy-Aligned Practice Authoring:** AI drafts leveled practice problems across cognitive tiers (Remembering, Understanding, Applying, Analyzing); instructors retain full editorial authority to review, adjust, and publish.
-- **Collective Misconception Heatmap:**
-  - The system synthesizes student practice performance and anonymized Q&A themes to detect systemic knowledge gaps.
-  - Visualized as a **Misconception Heatmap** on the instructor dashboard (e.g., *Alert: 68% of students struggle with void pointer casting or confuse time vs. space complexity*).
-  - Empowers faculty to deliver **Evidence-based Teaching** during live lectures without compromising individual student privacy.
+- **Upload & Approve Materials:** Teachers upload slides and textbooks. The system extracts the text cleanly, and the teacher reviews and clicks **Approve**.
+- **Create Practice Sets:** AI drafts practice questions at different difficulty levels. Teachers review, edit, and publish them to students.
+- **Common Mistakes Summary:**
+  - The system groups together common mistakes from quizzes and questions.
+  - Shows an overview on the teacher dashboard (for example: *Notice: 65% of students struggle with pointer arithmetic*).
+  - Helps teachers address difficult topics during class without exposing any student's private identity.
 
 ### 3. CECS Administrator Experience Flow
-- Manage server-side user provisioning and course enrollments.
-- Monitor **Course Readiness**: Track material approval rates and published practice volume ahead of each academic semester.
-- Review college-level academic health metrics to optimize TA resource allocation and curriculum design.
+- Manage user accounts and course enrollments.
+- Check course readiness: ensure materials and practice sets are uploaded and approved before classes start.
+- Review college-wide usage trends to support teachers and allocate TAs effectively.
 
 ---
 
 ## 3.2 Simplest Useful Pilot vs. Later List
 
-To guarantee a successful product showcase by **5 October 2026** (with core flows operational by **24 September 2026** per README.md), feature scope is strictly partitioned:
+To guarantee a successful product showcase by **5 October 2026** (with core flows working by **24 September 2026** per README.md), we clearly divide features into what is needed for the pilot and what can wait until later:
 
 | Functional Area | Simplest Useful Pilot (Must-Have by 24 Sep & Launch 05 Oct) | Later List (Deferred Post-Pilot) |
 | :--- | :--- | :--- |
-| **Auth & Access** | • Passwordless email OTP verification via `@vinuni.edu.vn`.<br>• Role-based access control (Student, Instructor/TA, Admin) with server-side authorization. | • Microsoft Single Sign-On (SSO) integration.<br>• Automated Canvas LMS roster synchronization via LTI 1.3 standard. |
-| **Material Management** | • Standard file uploads (PDF slides, textbooks, syllabi).<br>• Full lifecycle: `upload -> processing (ready/failed/retry) -> approve / unpublish / remove`. | • Automated video lecture transcription and audio parsing.<br>• Live, interactive Jupyter Notebook cloud execution environments. |
-| **Grounded AI Chat** | • Live RAG retrieval grounded in approved materials (`DB_Approved`).<br>• Inspectable page-level citations and `insufficient-evidence` fallbacks.<br>• Optional Web expansion with distinct `Course` vs. `Web` source labeling. | • Real-time voice-driven multimodal conversational interfaces.<br>• Multi-modal mathematical equation parsing from handwritten notes. |
-| **Private Study Space** | • Personal notes, document annotations, and private self-quizzes.<br>• Strict owner-only access; excluded from shared RAG and ordinary logs.<br>• Text-based active recall flashcard generation. | • Student private file uploads to personal cloud storage.<br>• Advanced 3D kinetic concept graphs.<br>• Real-time speech-to-speech Feynman simulation rooms. |
-| **Practice & Activities** | • AI generates draft practice from approved course content.<br>• Mandatory instructor review, edit, and publish workflow (`Review & Edit & Publish`).<br>• Formative feedback delivered to students with source citations. | • Fully automated summative AI grading without human oversight.<br>• Real-time dynamic Computerized Adaptive Testing (CAT) engines. |
-| **Analytics & Insights** | • Basic activity counts, processing status, and aggregate topic difficulty summaries (private notes strictly excluded). | • Predictive student attrition modeling and early-warning academic risk engines. |
+| **Auth & Access** | • Sign in with a 6-digit code sent to VinUni email (no password needed).<br>• User roles (Student, Instructor, Admin) checked safely on the server. | • Single Sign-On (SSO) with Microsoft accounts.<br>• Automatic student list syncing with Canvas LMS. |
+| **Material Management** | • Upload PDF files (slides, textbooks, syllabi).<br>• Manage files: upload, process, approve for students, or delete. | • Turning video and audio lecture recordings into text.<br>• Running code directly inside the browser (like Jupyter Notebooks). |
+| **Grounded AI Chat** | • AI answers based only on approved course documents.<br>• Clickable citations with page numbers, and warnings when evidence is missing.<br>• Optional web search that clearly labels course vs. web sources. | • Voice chat and speaking directly with the AI.<br>• Reading handwritten math formulas from photos. |
+| **Private Study Space** | • Personal notes, text highlights, and self-study questions.<br>• Only the student can see their notes; blocked from shared class search.<br>• Simple flashcards created from notes. | • Letting students upload their own personal files.<br>• Interactive 3D mindmaps.<br>• Practicing out loud with voice AI. |
+| **Practice & Quizzes** | • AI creates practice questions from approved course documents.<br>• Teachers must review, edit, and approve questions before publishing.<br>• Instant feedback showing why an answer is right or wrong, with slide links. | • AI grading exams and giving official final grades.<br>• Tests that automatically change difficulty while a student takes them. |
+| **Analytics & Insights** | • Basic stats: student activity, quiz completion rates, and difficult topics (private notes are never shown). | • AI predicting which students might fall behind early in the semester. |
 
 ---
 
@@ -263,77 +263,77 @@ flowchart LR
 
 * **Frontend:**
   - **Choice:** **Next.js 14+ (App Router) + TypeScript + Tailwind CSS**.
-  - **Rationale:** Rapid UI assembly, server-side rendering (SSR) for low latency, native Markdown and Mermaid rendering support, modular component architecture.
+  - **Why:** Fast UI development, quick page loading, easy rendering for Markdown notes and diagrams, and a clean component structure.
 * **Backend & API Layer:**
-  - **Choice:** **Next.js Server Actions & API Routes** as the core backend, paired with a lightweight **FastAPI (Python)** service for heavy AI document parsing and chunking pipelines.
-  - **Rationale:** Minimizes infrastructure overhead during the pilot while capitalizing on Python's mature data processing ecosystem.
+  - **Choice:** **Next.js API Routes** for core business logic, paired with a simple **FastAPI (Python)** service for extracting text and chunking PDF documents.
+  - **Why:** Keeps server setup simple during the pilot while taking advantage of Python's strong document processing tools.
 * **Database & Secure Storage:**
-  - **Choice:** **PostgreSQL (hosted on Supabase or Neon)** with **S3-compatible Object Storage**.
-  - **Security Pillar:** Enable **Row-Level Security (RLS)** on the `private_notes` table. Enforcing `auth.uid() = owner_id` at the database engine level guarantees that private student notes cannot leak through application-layer bugs or shared queries.
-* **AI Engine & Vector Retrieval:**
-  - **Model Selection:** **GPT-4o-mini** for high-speed, cost-effective grounded conversational Q&A (< 2s latency); **GPT-4o** for multi-step pedagogical reasoning, Bloom-leveled practice generation, and Feynman Socratic simulation.
-  - **Vector Database:** **`pgvector`** embedded natively within PostgreSQL. Eliminates the cost and operational complexity of running a standalone vector database (e.g., Pinecone/Qdrant) during the pilot.
+  - **Choice:** **PostgreSQL (on Supabase or Neon)** with **S3-compatible Object Storage** for PDF files.
+  - **Privacy Rule:** Use **Row-Level Security (RLS)** on the `private_notes` table (`auth.uid() = owner_id`). This ensures that private notes are safely locked at the database level, preventing any accidental data leaks.
+* **AI Engine & Search:**
+  - **Models:** **GPT-4o-mini** for fast, affordable everyday Q&A (< 2s response); **GPT-4o** for multi-step reasoning, generating practice questions, and the Feynman study mode.
+  - **Vector Search:** **`pgvector`** built right into PostgreSQL. Searches document chunks without the extra cost or complexity of running a separate vector database during the pilot.
 * **Authentication:**
-  - **Choice:** **Passwordless Email OTP** dispatching 6-digit codes to `@vinuni.edu.vn` addresses via Resend API or Supabase Auth. Simple, secure, and independent of external Microsoft Azure AD approval delays.
-* **Hosting & Operations:**
-  - **Choice:** Frontend and APIs deployed on **Vercel** with automated GitHub Actions CI/CD; Database on **Supabase**; Error tracking via **Sentry**; usage and token cost monitoring via administrative dashboards.
+  - **Choice:** **Passwordless Email OTP** sending a 6-digit code to `@vinuni.edu.vn` emails via Resend or Supabase Auth. Simple, secure, and avoids waiting for external Microsoft IT approvals.
+* **Hosting & Deployment:**
+  - **Choice:** Frontend and APIs on **Vercel** with GitHub Actions CI/CD; Database on **Supabase**; Error tracking with **Sentry**.
 
 ---
 
-## 3.4 World-Class Educational Innovations for QS Reimagine Education Awards
+## 3.4 Educational Innovations for Students and QS Reimagine Education Awards
 
-To directly champion VinUni's strategic journey toward the global top 100 young universities (**VinUni QS-100 Ambition**), these high-impact features are positioned for competitive submission to the [QS Reimagine Education Awards](https://www.qs.com/conferences/reimagine/apply) under the **AI in Education** and **Innovation in Higher Education** categories:
+To support VinUni's strategic goal of reaching the global top 100 young universities (**VinUni QS-100 Ambition**), these features are designed for student learning and can be submitted to the [QS Reimagine Education Awards](https://www.qs.com/conferences/reimagine/apply) under **AI in Education** and **Innovation in Higher Education**:
 
-1. **The Feynman Active-Recall Lab: Inverting Generative AI into Curious Learners**
-   - *Innovation:* Overcomes the global challenge of passive AI dependence. The system inverts standard roles: students act as instructors explaining complex technical algorithms to the AI, while the AI role-plays as an inquisitive novice asking Socratic counter-questions.
-   - *Pedagogical Impact:* Deepens conceptual mastery, cultivates critical thinking, and neutralizes generative AI cheating by transforming AI into an active assessment tool.
-2. **Zero-Knowledge Personalized Study Sanctuary with Semantic Mindmapping**
-   - *Innovation:* Pioneering an institutional architecture guaranteeing mathematical privacy isolation via server-side RLS (*"Private means private"*). Features dynamically generated semantic mindmaps from syllabi and spaced-retrieval flashcards tailored to individual private notes.
-   - *Pedagogical Impact:* Fosters an uncompromising environment of **Psychological Safety**, allowing students to explore vulnerabilities and practice self-regulated learning without fear of academic surveillance.
-3. **Privacy-Preserving Collective Misconception Heatmap**
-   - *Innovation:* Semantic clustering algorithms aggregate anonymized learning friction points from practice attempts and Q&A interactions, synthesizing collective class misconceptions for faculty while keeping personal notes completely inaccessible.
-   - *Pedagogical Impact:* Empowers instructors to transition from reactive lecturing to proactive **Evidence-Based Teaching**, resolving class-wide stumbling blocks before stepping into the lecture hall.
-4. **The Scaffolded Clue Ladder: Anti-Dependency Pedagogical Stepper**
-   - *Innovation:* Eliminates the passive crutch of students copying problem statements into LLMs for instant solutions. When stuck, the AI enforces a strict 3-tiered hint ladder: Tier 1 (Core concept & slide citation) $\rightarrow$ Tier 2 (Pseudocode / algorithmic mental model) $\rightarrow$ Tier 3 (Socratic probing questions to identify edge cases). The AI strictly declines to output complete code solutions.
-   - *Pedagogical Impact:* Scaffolds independent problem-solving resilience, directly preparing students for unassisted closed-book exams while cultivating metacognitive debugging habits.
-5. **Pomodoro Deep-Work & Micro-Synthesis Check-in**
-   - *Innovation:* Integrates a 25-minute Pomodoro focus timer directly into the Private Study Space. Upon timer expiration, the UI temporarily pauses study materials and presents a mandatory reflection prompt: *"What was the single most essential concept you grasped during this 25-minute sprint? Synthesize it in one concise sentence."* The response is logged automatically into the student's personal Study Journal.
-   - *Pedagogical Impact:* Neutralizes online distractions and procrastination, cultivates metacognitive synthesis skills, and dramatically boosts focused study productivity without consuming AI token budget.
-6. **Adaptive Spaced Repetition Engine: The Ebbinghaus Shield**
-   - *Innovation:* Any technical keyword, syntax pattern, or theoretical concept highlighted by the student within approved course materials is auto-converted into a dual-sided retrieval flashcard. The platform schedules micro-review intervals based on proven spaced repetition principles (Days 1, 3, 7, and 14) via a personalized Leitner system.
-   - *Pedagogical Impact:* Defeats the Ebbinghaus forgetting curve (preventing the loss of ~70% of new information within 48 hours), establishing daily 3-minute active recall habits that cement foundational CS knowledge into long-term memory.
+1. **Teach-the-AI Mode (The Feynman Lab):**
+   - *Idea:* Instead of students passively asking AI for answers, students learn by explaining difficult concepts (such as Dijkstra's algorithm or TCP handshakes) to the AI in their own words. The AI plays the role of a curious student asking follow-up questions.
+   - *Why it helps:* Helps students truly understand concepts rather than memorizing, while preventing passive copy-pasting from AI.
+2. **Private Study Space with Mindmaps:**
+   - *Idea:* A personal study space with automatic visual mindmaps generated from course syllabi, plus private flashcards.
+   - *Why it helps:* Gives students a safe place to practice, make mistakes, and ask basic questions without fear that teachers or admins are watching or grading them (*"Private means private"*).
+3. **Classroom Common Mistakes Summary for Teachers:**
+   - *Idea:* Groups common student errors from quizzes and chatbot topics into a simple dashboard for teachers, without showing any student's name or private notes.
+   - *Why it helps:* Teachers immediately see which topics students struggle with before stepping into class, allowing them to adjust their lectures.
+4. **Step-by-Step Hint Ladder (Anti-Dependency):**
+   - *Idea:* When students get stuck on coding or math problems, the AI never gives away the full solution. It provides 3 small steps: Step 1 (the key concept and slide number) $\rightarrow$ Step 2 (pseudocode or algorithm outline) $\rightarrow$ Step 3 (a guiding question to help find the bug).
+   - *Why it helps:* Helps students learn how to solve problems and debug on their own, preparing them for unassisted exams.
+5. **25-Minute Focus Timer with 1-Sentence Summary:**
+   - *Idea:* A built-in 25-minute Pomodoro timer in the Private Study Space. When time runs out, a pop-up asks: *"What was the main concept you learned in this sprint? Write it in one sentence."* The answer is saved to their personal study log.
+   - *Why it helps:* Reduces distractions, helps students focus, and trains them to summarize core ideas without using expensive AI tokens.
+6. **Smart Review Flashcards (Spaced Repetition):**
+   - *Idea:* Any concept or keyword highlighted in lecture slides is turned into a 2-sided flashcard. The system reminds students to review after 1, 3, 7, and 14 days.
+   - *Why it helps:* Prevents students from forgetting what they learned within 48 hours and turns revision into a quick 3-minute daily habit.
 
 ---
 
 # 4. Professional Interests and Individual Contribution
 
 ### 4.1 Relevant Experience
-- **Software Development (Dev Code):** Solid fullstack and backend foundation with proficiency in building RESTful APIs, relational data modeling, and asynchronous workflow execution.
-- **AI Agent & Workflow Architecture:** Practical experience in product ideation, complex agentic workflow design, LLM orchestration (OpenAI / Anthropic / Google Gemini), and advanced prompt engineering with structured outputs.
-- **System Architecture & UX Focus:** Proven ability to translate ambiguous educational requirements into robust, minimalist, and maintainable software systems.
+- **Software Development (Dev Code):** Strong fullstack and backend foundation with experience in building RESTful APIs, relational data modeling, and clean application workflows.
+- **AI Agent & Workflow Design:** Hands-on experience in product design, multi-step LLM workflows (OpenAI, Anthropic, Google Gemini), and prompt engineering with structured outputs.
+- **System Architecture:** Ability to turn educational requirements into simple, reliable, and easy-to-maintain software.
 
 ### 4.2 Two Preferred Work Areas
 1. **Area 1 — AI Core & Retrieval Engine (Grounded Q&A & Private Study Space):**
-   - Take full ownership of the **Grounded Q&A Engine**: integrate GPT-4o / GPT-4o-mini, implement inspectable citation metadata extraction, enforce `insufficient-evidence` fallback logic, and program rigorous **Pedagogical Guardrails**.
-   - Design and build the **Private Study Space**: establish the student note-taking workflow and personalized active-recall study generators under strict data isolation.
-2. **Area 2 — Backend Workflow & Course Lifecycle Management:**
-   - Engineer the end-to-end course material lifecycle (`upload -> processing -> approve/unpublish/remove`) and role-based course assignment logic.
-   - Implement **Server-side Authorization** and PostgreSQL Row-Level Security (RLS) policies to substantiate the *"Private means private"* guarantee.
+   - Build the **Grounded Q&A Engine**: connect GPT-4o / GPT-4o-mini, extract clickable source citations, add warnings when documents lack evidence, and set up teaching guardrails (hints instead of full solutions).
+   - Build the **Private Study Space**: create note-taking tools, flashcard generators, and self-study practice under strict private data isolation.
+2. **Area 2 — Backend Workflow & Course Management:**
+   - Build the course material lifecycle (`upload -> processing -> approve/unpublish/remove`) and user course assignments.
+   - Set up **Server-side Authorization** and PostgreSQL Row-Level Security (RLS) to enforce the *"Private means private"* guarantee.
 
 ### 4.3 One Learning Goal
 - **Mastering AI Evaluation (Eval & Benchmarking) & Production CI/CD:**
-  - Learn to establish rigorous quantitative evaluation pipelines for RAG systems using formal metrics (such as *Faithfulness, Answer Relevancy, Context Precision, and Hallucination Rates*).
-  - Acquire hands-on proficiency in building automated CI/CD deployment pipelines on GitHub Actions tailored for AI applications.
+  - Learn to measure chatbot quality using quantitative metrics (such as faithfulness, answer relevancy, and hallucination rates).
+  - Gain hands-on experience setting up automated testing and deployment pipelines on GitHub Actions.
 
 ### 4.4 Support Needed from the Team
-- **DevOps & Infrastructure:** Collaboration with team members experienced in cloud infrastructure to establish a stable staging environment and automate GitHub Actions workflows.
-- **Evaluation Datasets (Eval & Metrics):** Team assistance in assembling a verified ground-truth question-and-answer test suite from sample course materials to benchmark chatbot retrieval accuracy before the pilot.
-- **Peer Code Review:** Active architectural critique and cross-review on security enforcement and data isolation mechanisms.
+- **DevOps & Infrastructure:** Work with teammates experienced in cloud setup to build a stable staging environment and GitHub Actions workflows.
+- **Evaluation Datasets:** Team help in creating a set of test questions and answers from sample courses to measure chatbot accuracy before the pilot.
+- **Code Review:** Peer review on security rules and private data isolation to make sure there are no leaks.
 
 ### 4.5 Concrete Day 2 Contribution
-- **Measurable Commitment:** Build and demonstrate **one complete end-to-end working flow (One Working Flow)**:
-  1. Construct the core Grounded Chat pipeline integrated with the GPT-4o-mini API.
-  2. Ingest approved sample course materials, execute vector retrieval, and output grounded answers with inspectable source citations (filename, page/section) clickable on the UI.
-  3. Write automated server-side privacy access tests demonstrating that cross-user queries to `private_notes` are strictly denied at the database layer.
+- **Measurable Commitment:** Build and demonstrate **one complete working flow from start to finish (One Working Flow)**:
+  1. Set up the core Grounded Chat pipeline connected to GPT-4o-mini via API.
+  2. Ingest approved sample course materials, search relevant text chunks, and return answers with clickable citations (document name and page number) on the screen.
+  3. Write automated server-side security tests showing that private notes cannot be accessed by any other user or teacher.
 
 
