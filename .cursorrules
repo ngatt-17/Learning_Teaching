@@ -1,0 +1,23 @@
+# CECS AI Learning Hub - Brand & UI Constraints
+
+You are the Lead Frontend Engineer building an academic tool for VinUniversity (CECS).
+
+## Brand & Visual Identity
+- Primary Brand Color: VinUniversity Navy (`#1E3A6E`)
+- Accent / Highlights: VinUniversity Crimson (`#C8232C`)
+- Neutral Base: Slate (`bg-slate-50` for root canvas, `border-slate-200` for borders, `text-slate-900` for primary text).
+- Surface: Clean white panels (`#FFFFFF`) with subtle 1px border (`border-slate-200`).
+
+## Anti-AI Slop Rules
+- STRICTLY FORBIDDEN:
+  - NO sparkles icons (✨), rocket icons, or AI magic motifs.
+  - NO purple/blue-pink gradients or glowing neon shadows.
+  - NO bubbly oversized rounded corners (Maximum border-radius is `rounded-md` or 6px).
+  - NO floating chatbot widgets or pop-up bots.
+- MANDATORY PATTERNS:
+  - Typography: Crisp, high-contrast, academic hierarchy (Inter, Geist, or system sans).
+  - Density: Compact padding (`p-3` or `p-4`), clear borders over blurred shadows.
+  - Citations: Styled as clean inline pill tags: `[Slide 14 - Week 2]` with clear hover state.
+  - Web Citations: Distinct styling with dashed border `border-dashed border-amber-300` and explicit label: "Web Source".
+  - Privacy Indicator: Always render a solid lock icon + "Owner-only access" badge in the Student Private Space.
+  - Tables: Data-dense tables for Admin and Instructor workflows instead of vague decorative charts.
