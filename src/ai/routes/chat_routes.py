@@ -17,7 +17,7 @@ router = APIRouter(prefix="/courses/{course_id}", tags=["Chat RAG"])
 
 class ChatRequest(BaseModel):
     question: str = Field(..., min_length=3, max_length=1000,
-                          example="What is a variable in Python?")
+                          examples=["What is a variable in Python?"])
 
 
 @router.post("/chat")

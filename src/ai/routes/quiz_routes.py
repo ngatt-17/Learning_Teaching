@@ -33,11 +33,11 @@ AllowedQuestionType = Literal[
 
 
 class FromMaterialRequest(BaseModel):
-    material_id: str = Field(..., example="mat-intro-001")
-    course_id: str   = Field(..., example="course-a")
-    topic: str       = Field(default="", example="variables and data types")
+    material_id: str = Field(..., examples=["mat-intro-001"])
+    course_id: str   = Field(..., examples=["course-a"])
+    topic: str       = Field(default="", examples=["variables and data types"])
     difficulty: Literal["easy", "medium", "hard"] = "medium"
-    question_type: str = Field(default="mixed", example="mixed")
+    question_type: str = Field(default="mixed", examples=["mixed"])
     count: int       = Field(default=3, ge=1, le=20)
 
 
@@ -46,8 +46,8 @@ class FromBankRequest(BaseModel):
                               description="Raw text extracted from question bank file")
     count: int = Field(default=3, ge=1, le=20)
     difficulty: Literal["easy", "medium", "hard"] = "medium"
-    question_type: str = Field(default="mixed", example="mixed")
-    topic: str = Field(default="", example="Pointers and memory")
+    question_type: str = Field(default="mixed", examples=["mixed"])
+    topic: str = Field(default="", examples=["Pointers and memory"])
 
 
 class FromNoteRequest(BaseModel):
@@ -58,15 +58,15 @@ class FromNoteRequest(BaseModel):
 
 
 class GenQuizStandardRequest(BaseModel):
-    lesson_content: str = Field(..., min_length=20, example="Content of lecture slide...")
-    topic: str = Field(default="C Programming", example="Con trỏ và Bộ nhớ")
+    lesson_content: str = Field(..., min_length=20, examples=["Content of lecture slide..."])
+    topic: str = Field(default="C Programming", examples=["Con trỏ và Bộ nhớ"])
     num_questions: int = Field(default=3, ge=1, le=20)
     types: list[str] = Field(
         default=["single_choice", "multiple_choice", "short_answer"],
-        example=["single_choice", "multiple_choice", "short_answer"]
+        examples=[["single_choice", "multiple_choice", "short_answer"]]
     )
-    source_file: str = Field(default="Lecture01.pdf", example="Lecture02_Pointers.pdf")
-    lesson_id: str = Field(default="lesson-c-intro", example="c-programming-intro")
+    source_file: str = Field(default="Lecture01.pdf", examples=["Lecture02_Pointers.pdf"])
+    lesson_id: str = Field(default="lesson-c-intro", examples=["c-programming-intro"])
 
 
 # ── Instructor: Gen từ material ────────────────────────────────────────────
