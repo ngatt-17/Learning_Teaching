@@ -116,7 +116,7 @@ ALTER TABLE private_notes FORCE ROW LEVEL SECURITY;
 -- App phải set: SET app.current_user_id = '<user_id>' trước mỗi query
 CREATE POLICY note_owner_only ON private_notes
     FOR ALL
-    USING (owner_id = current_setting('app.current_user_id', true)::UUID);
+    USING (owner_id = NULLIF(current_setting('app.current_user_id', true), '')::UUID);
 
 -- Tạo role cecs_app (non-superuser) để app kết nối và enforce RLS
 DO $$
