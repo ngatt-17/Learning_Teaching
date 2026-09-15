@@ -20,3 +20,14 @@ coverage/
 *.log
 .DS_Store
 Thumbs.db
+
+# Local translations
+translations/
+CHANGE_REQUEST/
+draft/
+
+# Local IDE & python venv
+.vscode/
+pyrightconfig.json
+.venv/
+**/__pycache__/
