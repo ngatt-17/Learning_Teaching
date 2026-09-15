@@ -1,6 +1,6 @@
 from datetime import date, timedelta
-from typing import Optional
-from pydantic import BaseModel
+from typing import Literal, Optional
+from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException, status
 from auth import UserPayload, get_current_user
 from middleware import require_role, require_course_access
@@ -8,9 +8,24 @@ from database import get_db
 
 router = APIRouter(prefix="/courses/{course_id}/scores", tags=["Scores & Analytics"])
 
-class ScoreActivityUpdate(BaseModel):
-    activity_type: str  # 'quiz', 'comprehensive_quiz', 'active_learning'
-    points_earned: float
+# Hard ceiling per award. The score columns are NUMERIC(5,2), so an unbounded
+# value overflows the column and surfaces as a 500 instead of a validation error.
+MAX_POINTS_PER_AWARD = 100.0
+MAX_COMPONENT_TOTAL = 999.99
+
+
+class ScoreAward(BaseModel):
+    """
+    Staff-issued score award.
+
+    Points are never accepted from the student being scored: this endpoint is the
+    instructor/TA grading channel. The automated path (a student submitting a quiz
+    and the server grading it against stored answers) will call the same write with
+    server-computed points once the quiz feature lands.
+    """
+    student_id: str
+    activity_type: Literal["quiz", "comprehensive_quiz", "active_learning"]
+    points_earned: float = Field(gt=0, le=MAX_POINTS_PER_AWARD)
 
 @router.get("/my-score")
 def get_my_score(course_id: str, current_user: UserPayload = Depends(require_course_access)):
@@ -52,33 +67,42 @@ def get_my_score(course_id: str, current_user: UserPayload = Depends(require_cou
             "last_active_date": str(score["last_active_date"]) if score["last_active_date"] else None
         }
 
-@router.post("/activity")
-def record_activity(
+@router.post("/activity", dependencies=[Depends(require_role("instructor", "ta", "admin"))])
+def award_activity_points(
     course_id: str,
-    data: ScoreActivityUpdate,
+    data: ScoreAward,
     current_user: UserPayload = Depends(require_course_access)
 ):
     """
-    Update student scores and advance/reset streak based on active date.
+    Award score to a student and advance/reset their streak.
+
+    Restricted to instructors, TAs and admins: a student must never be able to write
+    their own score. Anything a student does that earns points (quiz, comprehensive
+    quiz, active learning game) has to be graded server-side from stored answers
+    before it reaches this write.
     """
-    today = date.today()
     with get_db() as cur:
+        cur.execute(
+            "SELECT 1 FROM enrollments WHERE user_id = %s AND course_id = %s AND role = 'student';",
+            (data.student_id, course_id)
+        )
+        if not cur.fetchone():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="That user is not enrolled as a student in this course"
+            )
+
+        today = date.today()
         cur.execute("""
             SELECT streak_days, last_active_date, quiz_score, comprehensive_score, active_score
             FROM student_scores
             WHERE student_id = %s AND course_id = %s;
-        """, (current_user.user_id, course_id))
+        """, (data.student_id, course_id))
         existing = cur.fetchone()
 
         if not existing:
             streak = 1
-            quiz = data.points_earned if data.activity_type == 'quiz' else 0.0
-            comp = data.points_earned if data.activity_type == 'comprehensive_quiz' else 0.0
-            active = data.points_earned if data.activity_type == 'active_learning' else 0.0
-            cur.execute("""
-                INSERT INTO student_scores (student_id, course_id, streak_days, quiz_score, comprehensive_score, active_score, last_active_date)
-                VALUES (%s, %s, %s, %s, %s, %s, %s);
-            """, (current_user.user_id, course_id, streak, quiz, comp, active, today))
+            quiz = comp = active = 0.0
         else:
             last_date = existing["last_active_date"]
             if last_date == today:
@@ -87,24 +111,49 @@ def record_activity(
                 streak = existing["streak_days"] + 1
             else:
                 streak = 1
-            
-            quiz = float(existing["quiz_score"]) + (data.points_earned if data.activity_type == 'quiz' else 0.0)
-            comp = float(existing["comprehensive_score"]) + (data.points_earned if data.activity_type == 'comprehensive_quiz' else 0.0)
-            active = float(existing["active_score"]) + (data.points_earned if data.activity_type == 'active_learning' else 0.0)
+            quiz = float(existing["quiz_score"])
+            comp = float(existing["comprehensive_score"])
+            active = float(existing["active_score"])
 
+        if data.activity_type == "quiz":
+            quiz += data.points_earned
+            new_component = quiz
+        elif data.activity_type == "comprehensive_quiz":
+            comp += data.points_earned
+            new_component = comp
+        else:
+            active += data.points_earned
+            new_component = active
+
+        if new_component > MAX_COMPONENT_TOTAL:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Component total would exceed the maximum storable score ({MAX_COMPONENT_TOTAL})"
+            )
+
+        if not existing:
+            cur.execute("""
+                INSERT INTO student_scores (student_id, course_id, streak_days, quiz_score,
+                                            comprehensive_score, active_score, last_active_date)
+                VALUES (%s, %s, %s, %s, %s, %s, %s);
+            """, (data.student_id, course_id, streak, quiz, comp, active, today))
+        else:
             cur.execute("""
                 UPDATE student_scores
                 SET streak_days = %s, quiz_score = %s, comprehensive_score = %s, active_score = %s,
                     last_active_date = %s, updated_at = NOW()
                 WHERE student_id = %s AND course_id = %s;
-            """, (streak, quiz, comp, active, today, current_user.user_id, course_id))
-        
-        return {
-            "status": "success",
-            "streak_days": streak,
-            "activity_added": data.activity_type,
-            "points_added": data.points_earned
-        }
+            """, (streak, quiz, comp, active, today, data.student_id, course_id))
+
+    return {
+        "status": "success",
+        "student_id": data.student_id,
+        "awarded_by": current_user.user_id,
+        "streak_days": streak,
+        "activity_added": data.activity_type,
+        "points_added": data.points_earned
+    }
+
 
 @router.get("/class-summary", dependencies=[Depends(require_role("instructor", "ta", "admin"))])
 def get_class_summary(course_id: str, current_user: UserPayload = Depends(require_course_access)):
@@ -130,3 +179,55 @@ def get_class_summary(course_id: str, current_user: UserPayload = Depends(requir
             "average_streak_days": round(float(summary["avg_streak"]), 1),
             "privacy_guarantee": "Private notes and private workspace queries are excluded from this dashboard"
         }
+
+
+@router.get("/students", dependencies=[Depends(require_role("instructor", "ta", "admin"))])
+def list_student_scores(course_id: str, current_user: UserPayload = Depends(require_course_access)):
+    """
+    Instructor dashboard roster with per-student score breakdown
+    ("Student A — 95đ | Xem chi tiết").
+
+    Students enrolled but with no recorded activity are returned with zeros so the
+    dashboard reconciles with the enrolment list. Private notes are never joined here.
+    """
+    with get_db() as cur:
+        cur.execute("""
+            SELECT u.id, u.name, u.email,
+                   COALESCE(s.streak_days, 0)          AS streak_days,
+                   COALESCE(s.quiz_score, 0)           AS quiz_score,
+                   COALESCE(s.comprehensive_score, 0)  AS comprehensive_score,
+                   COALESCE(s.active_score, 0)         AS active_score,
+                   s.last_active_date
+            FROM enrollments e
+            JOIN users u ON u.id = e.user_id
+            LEFT JOIN student_scores s ON s.student_id = u.id AND s.course_id = e.course_id
+            WHERE e.course_id = %s AND e.role = 'student'
+            ORDER BY u.name;
+        """, (course_id,))
+        rows = cur.fetchall()
+
+    students = []
+    for r in rows:
+        quiz = float(r["quiz_score"])
+        comp = float(r["comprehensive_score"])
+        active = float(r["active_score"])
+        streak = r["streak_days"]
+        students.append({
+            "student_id": str(r["id"]),
+            "name": r["name"],
+            "email": r["email"],
+            "streak_days": streak,
+            "quiz_score": quiz,
+            "comprehensive_score": comp,
+            "active_score": active,
+            "total_score": round(streak * 2.0 + quiz + comp + active, 2),
+            "last_active_date": str(r["last_active_date"]) if r["last_active_date"] else None,
+        })
+
+    students.sort(key=lambda s: s["total_score"], reverse=True)
+    return {
+        "course_id": course_id,
+        "total_students": len(students),
+        "students": students,
+        "privacy_guarantee": "Private notes and private workspace queries are excluded from this dashboard"
+    }

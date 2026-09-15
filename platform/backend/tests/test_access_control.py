@@ -204,3 +204,55 @@ def test_14_anonymous_feedback_contains_no_user_identity():
         assert "user_id" not in fb
         assert "author" not in fb
         assert "student_id" not in fb
+
+
+# =========================================================================
+# TEST SUITE 6: SCORE INTEGRITY (students must not write their own score)
+# =========================================================================
+
+def test_15_student_cannot_award_points_to_self():
+    token = get_token_for(STUDENT_A_EMAIL)
+    res = client.post(
+        f"/courses/{COURSE_A_ID}/scores/activity",
+        headers=auth_headers(token),
+        json={"student_id": "00000000-0000-0000-0000-000000000003",
+              "activity_type": "quiz", "points_earned": 100}
+    )
+    assert res.status_code == 403, f"Student was able to write a score: {res.text}"
+
+
+def test_16_instructor_can_award_points_to_enrolled_student():
+    token = get_token_for(INSTRUCTOR_EMAIL)
+    res = client.post(
+        f"/courses/{COURSE_A_ID}/scores/activity",
+        headers=auth_headers(token),
+        json={"student_id": "00000000-0000-0000-0000-000000000003",
+              "activity_type": "quiz", "points_earned": 1}
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["points_added"] == 1
+    assert body["awarded_by"] == "00000000-0000-0000-0000-000000000002"
+
+
+def test_17_award_rejects_out_of_range_points():
+    token = get_token_for(INSTRUCTOR_EMAIL)
+    res = client.post(
+        f"/courses/{COURSE_A_ID}/scores/activity",
+        headers=auth_headers(token),
+        json={"student_id": "00000000-0000-0000-0000-000000000003",
+              "activity_type": "quiz", "points_earned": 9999}
+    )
+    assert res.status_code == 422, f"Unbounded score accepted: {res.text}"
+
+
+def test_18_award_rejects_student_outside_the_course():
+    token = get_token_for(INSTRUCTOR_EMAIL)
+    res = client.post(
+        f"/courses/{COURSE_A_ID}/scores/activity",
+        headers=auth_headers(token),
+        json={"student_id": "00000000-0000-0000-0000-000000000004",  # Student B, Course B only
+              "activity_type": "quiz", "points_earned": 5}
+    )
+    assert res.status_code == 404, res.text
+
