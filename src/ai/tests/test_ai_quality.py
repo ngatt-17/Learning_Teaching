@@ -216,3 +216,41 @@ def test_T07_student_cannot_access_other_course_chat():
     assert resp.status_code == 403, (
         f"Student B phải bị từ chối truy cập course-a, nhưng nhận {resp.status_code}"
     )
+
+
+# ═════════════════════════════════════════════════════════════════════════
+# T08 — GenQuiz Contract: Đầy đủ 3 dạng câu hỏi, citation và JSON schema
+# ═════════════════════════════════════════════════════════════════════════
+def test_T08_genquiz_contract_and_citations():
+    """Kiểm tra API contract /api/ai/gen-quiz: cấu trúc câu hỏi có citation và lời giải thích."""
+    content = (
+        "In C programming, pointers store memory addresses of variables. "
+        "The dereference operator '*' accesses the value pointed to. "
+        "Dynamic memory functions in stdlib.h include malloc, calloc, and free."
+    )
+    resp = client.post(
+        "/api/ai/gen-quiz",
+        json={
+            "lesson_content": content,
+            "topic": "Con trỏ & Bộ nhớ C",
+            "num_questions": 3,
+            "types": ["single_choice", "multiple_choice", "short_answer"],
+            "source_file": "Lecture02_Pointers.pdf",
+            "lesson_id": "c-pointers-02",
+        },
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+
+    assert data["lesson_id"] == "c-pointers-02"
+    assert "questions" in data
+    assert len(data["questions"]) >= 1
+
+    for q in data["questions"]:
+        assert "question" in q
+        assert "type" in q
+        assert "explanation" in q
+        assert "citation" in q, "Mỗi câu hỏi phải có citation"
+        assert "source_file" in q["citation"]
+        assert "page" in q["citation"]
+        assert "evidence_snippet" in q["citation"]

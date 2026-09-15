@@ -1,17 +1,20 @@
 """
 routes/quiz_routes.py — GenQuiz endpoints
 
-Instructor:
-  POST /quiz/from-material     — Gen từ approved material
-  POST /quiz/from-bank         — Gen từ ngân hàng đề (raw text)
-  PATCH /quiz/{draft_id}/publish — Duyệt publish (bắt buộc)
-  GET /quiz/{draft_id}         — Xem draft
+Instructor / TA:
+  POST /quiz/from-material        — Gen từ approved material (draft)
+  POST /quiz/from-bank            — Gen từ ngân hàng đề raw text (draft)
+  PATCH /quiz/{draft_id}/publish  — Duyệt publish (bắt buộc trước khi học sinh xem)
+  GET /quiz/{draft_id}            — Xem draft
 
 Student (private — không lưu DB):
-  POST /quiz/from-note         — Gen từ ghi chú riêng
+  POST /quiz/from-note            — Gen từ ghi chú riêng
+
+Team 1 & Team 2 Contract:
+  POST /api/ai/gen-quiz           — Sinh bài tập 3 dạng chuẩn hóa JSON
 """
 from __future__ import annotations
-from typing import Literal, Optional
+from typing import Literal, Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
@@ -19,30 +22,51 @@ from mock_auth import MockUser, get_current_user, require_course_access
 import quiz_generator as qg
 
 router = APIRouter(prefix="/quiz", tags=["GenQuiz"])
+contract_router = APIRouter(prefix="/api/ai", tags=["Team Contract Endpoints"])
 
 
 # ── Request schemas ────────────────────────────────────────────────────────
+AllowedQuestionType = Literal[
+    "single_choice", "multiple_choice", "short_answer",
+    "mixed", "mcq", "truefalse", "short"
+]
+
+
 class FromMaterialRequest(BaseModel):
     material_id: str = Field(..., example="mat-intro-001")
     course_id: str   = Field(..., example="course-a")
     topic: str       = Field(default="", example="variables and data types")
     difficulty: Literal["easy", "medium", "hard"] = "medium"
-    question_type: Literal["mcq", "truefalse", "short"] = "mcq"
-    count: int       = Field(default=5, ge=1, le=20)
+    question_type: str = Field(default="mixed", example="mixed")
+    count: int       = Field(default=3, ge=1, le=20)
 
 
 class FromBankRequest(BaseModel):
-    bank_content: str = Field(..., min_length=50,
+    bank_content: str = Field(..., min_length=20,
                               description="Raw text extracted from question bank file")
-    count: int = Field(default=10, ge=1, le=20)
+    count: int = Field(default=3, ge=1, le=20)
     difficulty: Literal["easy", "medium", "hard"] = "medium"
-    question_type: Literal["mcq", "truefalse", "short"] = "mcq"
+    question_type: str = Field(default="mixed", example="mixed")
+    topic: str = Field(default="", example="Pointers and memory")
 
 
 class FromNoteRequest(BaseModel):
-    note_content: str = Field(..., min_length=20,
+    note_content: str = Field(..., min_length=15,
                               description="Student's private note content")
-    count: int = Field(default=5, ge=1, le=20)
+    count: int = Field(default=3, ge=1, le=20)
+    types: list[str] = Field(default=["single_choice", "short_answer"])
+
+
+class GenQuizStandardRequest(BaseModel):
+    lesson_content: str = Field(..., min_length=20, example="Content of lecture slide...")
+    topic: str = Field(default="C Programming", example="Con trỏ và Bộ nhớ")
+    num_questions: int = Field(default=3, ge=1, le=20)
+    types: list[str] = Field(
+        default=["single_choice", "multiple_choice", "short_answer"],
+        example=["single_choice", "multiple_choice", "short_answer"]
+    )
+    source_file: str = Field(default="Lecture01.pdf", example="Lecture02_Pointers.pdf")
+    lesson_id: str = Field(default="lesson-c-intro", example="c-programming-intro")
 
 
 # ── Instructor: Gen từ material ────────────────────────────────────────────
@@ -98,6 +122,7 @@ def gen_from_bank(
         count=body.count,
         difficulty=body.difficulty,
         question_type=body.question_type,
+        topic=body.topic,
     )
     return {
         **draft,
@@ -149,7 +174,7 @@ def get_draft(
     return draft
 
 
-# ── Student: Gen từ ghi chú riêng (PRIVATE) ────────────────────────────────
+# ── Student: Gen từ ghi chú riêng (PRIVATE — KHÔNG LƯU DB) ─────────────────
 @router.post("/from-note")
 def gen_from_note(
     body: FromNoteRequest,
@@ -168,7 +193,7 @@ def gen_from_note(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="This endpoint is for students only.")
 
-    questions = qg.gen_from_note(body.note_content, body.count)
+    questions = qg.gen_from_note(body.note_content, body.count, body.types)
 
     return {
         "note_quiz": True,
@@ -181,3 +206,22 @@ def gen_from_note(
             "and are not stored on the server."
         ),
     }
+
+
+# ── API Contract Endpoint cho Team 1 & Team 2 ──────────────────────────────
+@contract_router.post("/gen-quiz")
+def api_gen_quiz_contract(body: GenQuizStandardRequest):
+    """
+    Endpoint chuẩn theo hợp đồng API Team 3 (AI & Quality) với Team 1 & Team 2:
+    Nhận nội dung bài học -> Sinh đúng 3 dạng (single_choice, multiple_choice, short_answer)
+    kèm trích dẫn số trang và lời giải thích.
+    """
+    result = qg.gen_quiz_standard(
+        lesson_content=body.lesson_content,
+        topic=body.topic,
+        num_questions=body.num_questions,
+        types=body.types,
+        source_file=body.source_file,
+        lesson_id=body.lesson_id,
+    )
+    return result

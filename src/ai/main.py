@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 
 from routes.health_routes import router as health_router
 from routes.chat_routes import router as chat_router
-from routes.quiz_routes import router as quiz_router
+from routes.quiz_routes import router as quiz_router, contract_router
 from config import AI_SERVICE_PORT
 
 load_dotenv()
@@ -49,6 +49,7 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(chat_router)
 app.include_router(quiz_router)
+app.include_router(contract_router)
 
 
 @app.get("/", tags=["Root"])

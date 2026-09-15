@@ -1,17 +1,25 @@
 """
-quiz_generator.py — GenQuiz với 3 luồng
+quiz_generator.py — GenQuiz chuẩn hóa cho CECS AI Learning Hub (AI & Quality Module)
 
-1. gen_from_material()    — Instructor: từ approved slide/material
-2. gen_from_question_bank()  — Instructor: từ ngân hàng đề (raw text)
-3. gen_from_note()        — Student: từ ghi chú riêng (KHÔNG lưu DB)
+Hỗ trợ 3 dạng câu hỏi chuẩn hóa theo draft/team-3-ai-quality-day02-plan.md:
+  1. single_choice:  Chọn 1 đáp án đúng (Radio). correct_answer: int (index 0..3)
+  2. multiple_choice: Chọn nhiều đáp án đúng (Checkbox). correct_answer: list[int]
+  3. short_answer:    Điền từ / trả lời ngắn. correct_answer: str, keywords: list[str]
 
-Tất cả draft quiz cần instructor PATCH /quiz/{draft_id}/publish mới published.
-Student quiz (gen_from_note) không có draft_id và không lưu vào store.
+Mỗi câu hỏi đều có:
+  - citation: {"source_file": str, "page": int, "evidence_snippet": str}
+  - explanation: lời giải thích dựa trên tài liệu
+
+3 luồng sử dụng:
+  1. gen_from_material()       — Giảng viên/TA: từ bài giảng đã duyệt (Draft -> Publish)
+  2. gen_from_question_bank()  — Giảng viên/TA: từ ngân hàng đề raw text
+  3. gen_from_note()           — Sinh viên: từ ghi chú cá nhân (PRIVATE: KHÔNG LƯU SERVER)
 """
 from __future__ import annotations
 import json
 import uuid
-from typing import TypedDict, Literal
+from datetime import datetime, timezone
+from typing import TypedDict, Literal, Any, Union
 
 from openai import OpenAI
 
@@ -20,29 +28,42 @@ from fixtures.sample_material import get_material
 
 
 # ── Types ──────────────────────────────────────────────────────────────────
-QuestionType = Literal["mcq", "truefalse", "short"]
-Difficulty    = Literal["easy", "medium", "hard"]
+QuestionType = Literal["single_choice", "multiple_choice", "short_answer", "mcq", "truefalse", "short"]
+Difficulty = Literal["easy", "medium", "hard"]
 
 
-class Question(TypedDict):
-    id: int
-    type: QuestionType
+class QuestionCitation(TypedDict):
+    source_file: str
+    page: int
+    evidence_snippet: str
+
+
+class Question(TypedDict, total=False):
+    id: Union[str, int]
+    type: str
+    topic: str
     question: str
-    options: list[str]      # [] nếu short answer
-    answer: str
+    options: list[str]
+    correct_answer: Union[int, list[int], str]
+    answer: str                 # Backward compatibility with existing tests
+    keywords: list[str]          # Dành riêng cho short_answer
     explanation: str
-    source_page: int        # 0 nếu không xác định trang
+    citation: QuestionCitation
+    source_page: int             # Backward compatibility: page number
 
 
-class QuizDraft(TypedDict):
+class QuizDraft(TypedDict, total=False):
     draft_id: str
     material_id: str | None
+    lesson_id: str | None
+    topic: str
+    generated_at: str
     status: Literal["draft", "published"]
     questions: list[Question]
 
 
 # ── In-memory draft store (Day 2) ──────────────────────────────────────────
-# Tuần 2: thay bằng INSERT vào bảng quiz_drafts của platform DB.
+# Tuần 2: thay bằng INSERT vào bảng quiz_drafts của PostgreSQL
 _DRAFT_STORE: dict[str, QuizDraft] = {}
 
 
@@ -50,142 +71,362 @@ _DRAFT_STORE: dict[str, QuizDraft] = {}
 _client = OpenAI(api_key=XKIRO_API_KEY, base_url=XKIRO_BASE_URL)
 
 
-# ── Prompt builder ─────────────────────────────────────────────────────────
+# ── Prompt Builder ─────────────────────────────────────────────────────────
 def _build_quiz_prompt(
     context: str,
     count: int,
-    qtype: QuestionType,
+    requested_types: list[str],
     difficulty: Difficulty,
     topic: str = "",
+    source_file: str = "CourseMaterial.pdf",
 ) -> str:
-    type_desc = {
-        "mcq": "multiple-choice (4 options, exactly one correct answer)",
-        "truefalse": "True/False",
-        "short": "short answer (1–2 sentences)",
-    }[qtype]
+    topic_clause = f" Focus strictly on topic: '{topic}'." if topic else ""
+    types_str = ", ".join(requested_types)
 
-    topic_clause = f" Focus on the topic: '{topic}'." if topic else ""
-    return f"""You are an educational quiz generator for VinUniversity.
-Generate exactly {count} {type_desc} questions at {difficulty} difficulty.{topic_clause}
+    return f"""You are an educational AI quiz generator for VinUniversity (CECS AI Learning Hub).
+Generate exactly {count} quiz questions based ONLY on the provided course material.{topic_clause}
+Target difficulty: {difficulty}.
+Allowed question types: {types_str}.
 
-Use ONLY the following course content:
+Course Material:
 ---
 {context}
 ---
 
-Return a JSON array (no markdown, no extra text) with this exact structure for each question:
-{{
-  "id": <number>,
-  "type": "{qtype}",
-  "question": "<question text>",
-  "options": [<list of strings, empty array for short answer>],
-  "answer": "<correct answer>",
-  "explanation": "<1–2 sentence explanation citing the source>",
-  "source_page": <page number or 0>
-}}
+Requirements for each question type:
+1. "single_choice": exactly 4 options. "correct_answer" must be the 0-based integer index (0, 1, 2, or 3).
+2. "multiple_choice": exactly 4 options. "correct_answer" must be a list of 0-based integer indices with 2 or more correct options (e.g. [0, 2] or [0, 1, 3]).
+3. "short_answer": "options" is []. "correct_answer" is the sample model answer string. Provide a "keywords" list of acceptable key phrases for grading.
 
-Important:
-- For MCQ: options must have exactly 4 strings.
-- For True/False: options must be ["True", "False"].
-- For short: options must be [].
-- Base all questions strictly on the provided content. Do not invent facts.
+For EVERY question, you MUST cite the exact page number and a short snippet from the text where the answer is found.
+
+Return ONLY a valid JSON array of objects (no markdown, no backticks, no introduction) following this schema:
+[
+  {{
+    "id": "q1",
+    "type": "single_choice",
+    "topic": "{topic or 'Course Concepts'}",
+    "question": "Question text here?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct_answer": 1,
+    "explanation": "Clear explanation citing the course content.",
+    "citation": {{
+      "source_file": "{source_file}",
+      "page": 1,
+      "evidence_snippet": "exact or near exact snippet from the text"
+    }}
+  }},
+  {{
+    "id": "q2",
+    "type": "multiple_choice",
+    "topic": "{topic or 'Course Concepts'}",
+    "question": "Which of the following are correct? (Select all that apply)",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct_answer": [0, 2],
+    "explanation": "Explanation why A and C are correct.",
+    "citation": {{
+      "source_file": "{source_file}",
+      "page": 2,
+      "evidence_snippet": "text snippet"
+    }}
+  }},
+  {{
+    "id": "q3",
+    "type": "short_answer",
+    "topic": "{topic or 'Course Concepts'}",
+    "question": "Fill in the blank / explain briefly...",
+    "options": [],
+    "correct_answer": "Expected brief answer",
+    "keywords": ["keyword1", "keyword2"],
+    "explanation": "Explanation.",
+    "citation": {{
+      "source_file": "{source_file}",
+      "page": 3,
+      "evidence_snippet": "text snippet"
+    }}
+  }}
+]
+Ensure the JSON is strictly valid, and generate a diverse mix of the requested types ({types_str}).
 """
 
 
-def _call_llm_for_quiz(prompt: str) -> list[Question]:
-    """Gọi LLM và parse JSON response thành list[Question]."""
+def _normalize_questions(
+    raw_data: list[dict[str, Any]],
+    default_source: str = "CourseMaterial.pdf",
+    target_qtype: str = "",
+) -> list[Question]:
+    """Chuẩn hóa dữ liệu trả về từ LLM để tương thích 100% với cả schema mới và unit test cũ."""
+    normalized: list[Question] = []
+    for idx, item in enumerate(raw_data, start=1):
+        q_id = item.get("id", f"q{idx}")
+        q_type = item.get("type", "single_choice")
+        if target_qtype in ("mcq", "single_choice") and q_type in ("single_choice", "mcq"):
+            q_type = target_qtype
+        elif target_qtype in ("short", "short_answer") and q_type in ("short", "short_answer"):
+            q_type = target_qtype
+
+        question_text = item.get("question", "")
+        options = item.get("options", [])
+        explanation = item.get("explanation", "")
+        topic = item.get("topic", "General")
+        keywords = item.get("keywords", [])
+
+        # Citation handling
+        citation_raw = item.get("citation", {})
+        if isinstance(citation_raw, dict):
+            page_num = citation_raw.get("page", item.get("source_page", 1))
+            try:
+                page_num = int(page_num)
+            except (ValueError, TypeError):
+                page_num = 1
+            citation: QuestionCitation = {
+                "source_file": citation_raw.get("source_file", default_source),
+                "page": page_num,
+                "evidence_snippet": citation_raw.get("evidence_snippet", ""),
+            }
+        else:
+            page_num = int(item.get("source_page", 1))
+            citation = {
+                "source_file": default_source,
+                "page": page_num,
+                "evidence_snippet": "",
+            }
+
+        # Correct answer & answer string handling
+        correct_answer = item.get("correct_answer")
+        answer_str = item.get("answer")
+
+        if q_type == "single_choice":
+            if correct_answer is None and answer_str is not None:
+                # Nếu LLM trả về answer chuỗi thay vì index
+                if answer_str in options:
+                    correct_answer = options.index(answer_str)
+                else:
+                    correct_answer = 0
+            elif isinstance(correct_answer, int) and 0 <= correct_answer < len(options):
+                answer_str = options[correct_answer]
+            else:
+                try:
+                    correct_answer = int(correct_answer)
+                    answer_str = options[correct_answer] if 0 <= correct_answer < len(options) else (options[0] if options else "")
+                except (ValueError, TypeError):
+                    correct_answer = 0
+                    answer_str = options[0] if options else ""
+
+        elif q_type == "multiple_choice":
+            if not isinstance(correct_answer, list):
+                correct_answer = [0]
+            if not answer_str:
+                answer_str = ", ".join(options[i] for i in correct_answer if isinstance(i, int) and 0 <= i < len(options))
+
+        elif q_type == "short_answer":
+            if correct_answer is None:
+                correct_answer = answer_str or ""
+            if not answer_str:
+                answer_str = str(correct_answer)
+            if not keywords and isinstance(correct_answer, str):
+                keywords = [k.strip() for k in correct_answer.split() if len(k.strip()) > 2]
+
+        q: Question = {
+            "id": q_id,
+            "type": q_type,
+            "topic": topic,
+            "question": question_text,
+            "options": options,
+            "correct_answer": correct_answer,
+            "answer": answer_str or "",
+            "keywords": keywords,
+            "explanation": explanation,
+            "citation": citation,
+            "source_page": citation["page"],
+        }
+        normalized.append(q)
+    return normalized
+
+
+def _call_llm_for_quiz(
+    prompt: str,
+    default_source: str = "CourseMaterial.pdf",
+    target_qtype: str = "",
+) -> list[Question]:
+    """Gọi LLM qua xkiro (hỗ trợ DeepSeek) và parse kết quả JSON."""
     try:
         completion = _client.chat.completions.create(
             model=DEFAULT_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=2048,
-            temperature=0.5,
+            messages=[
+                {"role": "system", "content": "You are a professional educational assessment engine for VinUniversity. Output strictly valid JSON arrays only."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=3000,
+            temperature=0.4,
         )
         raw = completion.choices[0].message.content or "[]"
-        # Strip potential markdown fences
-        raw = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+        # Bóc tách markdown json nếu có
+        raw = raw.strip()
+        if "```json" in raw:
+            raw = raw.split("```json", 1)[1].split("```", 1)[0]
+        elif "```" in raw:
+            raw = raw.split("```", 1)[1].split("```", 1)[0]
+        raw = raw.strip()
+
         data = json.loads(raw)
-        return [Question(**q) for q in data]
-    except (json.JSONDecodeError, TypeError, KeyError) as e:
-        # Trả về 1 câu hỏi lỗi thay vì crash toàn bộ
-        return [Question(
-            id=1, type="short",
-            question="[Quiz generation failed — raw LLM output could not be parsed]",
-            options=[], answer="N/A",
-            explanation=str(e), source_page=0,
-        )]
+        if isinstance(data, dict) and "questions" in data:
+            data = data["questions"]
+        if not isinstance(data, list):
+            data = []
+
+        return _normalize_questions(data, default_source=default_source, target_qtype=target_qtype)
+
+    except Exception as e:
+        # Fallback an toàn nếu LLM gặp lỗi cú pháp
+        return [
+            {
+                "id": "q1",
+                "type": "single_choice",
+                "topic": "Fallback",
+                "question": f"[Quiz generation failed: {str(e)}]",
+                "options": ["Retry", "Check Connection", "Check API Key", "Contact Admin"],
+                "correct_answer": 0,
+                "answer": "Retry",
+                "keywords": [],
+                "explanation": f"Model: {DEFAULT_MODEL}, Error: {str(e)}",
+                "citation": {"source_file": default_source, "page": 1, "evidence_snippet": "Error fallback"},
+                "source_page": 1,
+            }
+        ]
 
 
-# ── 1. Gen từ material ─────────────────────────────────────────────────────
+# ── 1. Gen từ bài giảng đã duyệt (Instructor / TA Flow) ──────────────────────
 def gen_from_material(
     material_id: str,
     topic: str = "",
     difficulty: Difficulty = "medium",
-    question_type: QuestionType = "mcq",
-    count: int = 5,
+    question_type: str = "mixed",
+    count: int = 3,
 ) -> QuizDraft:
-    """Instructor: sinh quiz từ approved material. Trả về draft (status=draft)."""
+    """Giảng viên sinh quiz từ học liệu đã duyệt. Trả về QuizDraft ở trạng thái 'draft'."""
     count = min(count, MAX_QUIZ_COUNT)
     mat = get_material(material_id)
     if not mat:
         raise ValueError(f"Material '{material_id}' not found in fixtures.")
-    if not mat["approved_for_ai"]:
+    if not mat.get("approved_for_ai"):
         raise ValueError(f"Material '{material_id}' is not approved for AI use.")
+
+    # Xác định các dạng câu hỏi cần sinh
+    if question_type in ("single_choice", "mcq"):
+        requested_types = ["single_choice"]
+    elif question_type in ("multiple_choice",):
+        requested_types = ["multiple_choice"]
+    elif question_type in ("short_answer", "short"):
+        requested_types = ["short_answer"]
+    elif question_type in ("truefalse",):
+        requested_types = ["single_choice"]
+    else:
+        # Mặc định là 'mixed': sinh kết hợp đủ 3 dạng chuẩn của Team 3
+        requested_types = ["single_choice", "multiple_choice", "short_answer"]
 
     context = "\n\n".join(
         f"[Page {c['page']}] {c['text']}" for c in mat["chunks"]
     )
-    prompt = _build_quiz_prompt(context, count, question_type, difficulty, topic)
-    questions = _call_llm_for_quiz(prompt)
+    source_file = f"{material_id}.pdf"
+    prompt = _build_quiz_prompt(context, count, requested_types, difficulty, topic, source_file)
+    questions = _call_llm_for_quiz(prompt, default_source=source_file, target_qtype=question_type)
 
-    draft = QuizDraft(
-        draft_id=str(uuid.uuid4()),
-        material_id=material_id,
-        status="draft",
-        questions=questions,
-    )
-    _DRAFT_STORE[draft["draft_id"]] = draft
+    now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    draft_id = str(uuid.uuid4())
+    draft: QuizDraft = {
+        "draft_id": draft_id,
+        "material_id": material_id,
+        "lesson_id": material_id,
+        "topic": topic or "Course Material Overview",
+        "generated_at": now_iso,
+        "status": "draft",
+        "questions": questions,
+    }
+    _DRAFT_STORE[draft_id] = draft
     return draft
 
 
-# ── 2. Gen từ ngân hàng đề ─────────────────────────────────────────────────
+# ── 2. Gen từ ngân hàng đề raw text (Instructor / TA Flow) ───────────────────
 def gen_from_question_bank(
     bank_content: str,
-    count: int = 10,
+    count: int = 3,
     difficulty: Difficulty = "medium",
-    question_type: QuestionType = "mcq",
+    question_type: str = "mixed",
+    topic: str = "",
 ) -> QuizDraft:
-    """Instructor: sinh quiz từ raw text ngân hàng đề (PDF đã extract).
-    Trả về draft (status=draft).
-    """
+    """Giảng viên sinh quiz từ text ngân hàng đề. Trả về draft."""
     count = min(count, MAX_QUIZ_COUNT)
-    prompt = _build_quiz_prompt(bank_content, count, question_type, difficulty)
-    questions = _call_llm_for_quiz(prompt)
+    if question_type in ("single_choice", "mcq"):
+        requested_types = ["single_choice"]
+    elif question_type in ("multiple_choice",):
+        requested_types = ["multiple_choice"]
+    elif question_type in ("short_answer", "short"):
+        requested_types = ["short_answer"]
+    else:
+        requested_types = ["single_choice", "multiple_choice", "short_answer"]
 
-    draft = QuizDraft(
-        draft_id=str(uuid.uuid4()),
-        material_id=None,
-        status="draft",
-        questions=questions,
-    )
-    _DRAFT_STORE[draft["draft_id"]] = draft
+    prompt = _build_quiz_prompt(bank_content, count, requested_types, difficulty, topic, "QuestionBank.pdf")
+    questions = _call_llm_for_quiz(prompt, default_source="QuestionBank.pdf", target_qtype=question_type)
+
+    now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    draft_id = str(uuid.uuid4())
+    draft: QuizDraft = {
+        "draft_id": draft_id,
+        "material_id": None,
+        "lesson_id": "bank-extracted",
+        "topic": topic or "Question Bank Topic",
+        "generated_at": now_iso,
+        "status": "draft",
+        "questions": questions,
+    }
+    _DRAFT_STORE[draft_id] = draft
     return draft
 
 
-# ── 3. Gen từ ghi chú của student (PRIVATE — không lưu DB) ────────────────
-def gen_from_note(note_content: str, count: int = 5) -> list[Question]:
-    """Student: sinh quiz từ ghi chú riêng.
-    KHÔNG lưu vào _DRAFT_STORE hay bất kỳ DB nào.
-    Trả thẳng list[Question].
+# ── 3. Gen từ ghi chú của sinh viên (STUDENT PRIVATE — KHÔNG LƯU DB) ────────
+def gen_from_note(
+    note_content: str,
+    count: int = 3,
+    types: list[str] | None = None,
+) -> list[Question]:
+    """
+    Sinh viên sinh quiz từ ghi chú cá nhân (Private Study Space).
+    TUYỆT ĐỐI KHÔNG LƯU VÀO _DRAFT_STORE HOẶC DATABASE NÀO.
     """
     count = min(count, MAX_QUIZ_COUNT)
-    prompt = _build_quiz_prompt(note_content, count, "mcq", "medium")
-    return _call_llm_for_quiz(prompt)
+    requested_types = types or ["single_choice", "short_answer"]
+    prompt = _build_quiz_prompt(note_content, count, requested_types, "medium", "Personal Notes", "PrivateStudyNotes")
+    return _call_llm_for_quiz(prompt, default_source="PrivateStudyNotes")
 
 
-# ── Publish (Instructor review) ────────────────────────────────────────────
+# ── 4. API Contract Endpoint cho Team 1 & Team 2 (POST /api/ai/gen-quiz) ───
+def gen_quiz_standard(
+    lesson_content: str,
+    topic: str = "",
+    num_questions: int = 3,
+    types: list[str] | None = None,
+    source_file: str = "LectureSlide.pdf",
+    lesson_id: str = "lesson-01",
+) -> dict[str, Any]:
+    """Hàm sinh bài tập chuẩn theo đúng định dạng JSON thỏa thuận trong Team 3 Day 02 plan."""
+    num_questions = min(num_questions, MAX_QUIZ_COUNT)
+    requested_types = types or ["single_choice", "multiple_choice", "short_answer"]
+    prompt = _build_quiz_prompt(lesson_content, num_questions, requested_types, "medium", topic, source_file)
+    questions = _call_llm_for_quiz(prompt, default_source=source_file)
+
+    now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    return {
+        "lesson_id": lesson_id,
+        "topic": topic or "General Topic",
+        "generated_at": now_iso,
+        "questions": questions,
+    }
+
+
+# ── Publish draft (Instructor review) ──────────────────────────────────────
 def publish_draft(draft_id: str) -> QuizDraft:
-    """Instructor xác nhận publish draft. Không có bước này, quiz không ra student."""
+    """Giảng viên duyệt publish. Không có bước này, sinh viên không thể thấy bài tập."""
     draft = _DRAFT_STORE.get(draft_id)
     if not draft:
         raise KeyError(f"Draft '{draft_id}' not found.")

@@ -4,15 +4,17 @@ config.py — Cấu hình trung tâm cho AI module
 import os
 from dotenv import load_dotenv
 
+ENV_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+load_dotenv(ENV_PATH)
 load_dotenv()
 
 # ── xKiro API ──────────────────────────────────────────────────
 XKIRO_API_KEY: str = os.getenv("XKIRO_API_KEY", "")
 XKIRO_BASE_URL: str = "https://api.xkiro.com/v1"
 
-# Default model — dùng google/gemini-3.5-flash (free tier, nhanh)
+# Default model — dùng DeepSeek (free tier xkiro, chất lượng cao)
 # Để đổi: set MODEL_NAME trong .env
-DEFAULT_MODEL: str = os.getenv("MODEL_NAME", "google/gemini-3.5-flash")
+DEFAULT_MODEL: str = os.getenv("MODEL_NAME", "deepseek/deepseek-v4.1-flash:free")
 
 # ── Retrieval ──────────────────────────────────────────────────
 CHUNK_SIZE_WORDS: int = 150     # ~500 tokens

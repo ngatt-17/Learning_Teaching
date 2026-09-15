@@ -1,160 +1,135 @@
-# AI & Quality Service — CECS AI Learning Hub
+# Team 3 (AI & Quality Module) — CECS AI Learning Hub
 
-**Day 2 Standalone Build** | Port: `8001` | Branch: `feature/ngatt-17-ai-quality-day02`
-
----
-
-## Tổng quan
-
-Module AI độc lập cung cấp:
-1. **Chat RAG** — Hỏi đáp bám sát tài liệu khoá học, trích dẫn nguồn theo trang
-2. **GenQuiz (3 luồng)** — Sinh quiz từ slide, ngân hàng đề, hoặc ghi chú riêng của sinh viên
-3. **Test checklist** — 7 test case theo yêu cầu Day 2
-
-> ⚠️ **Day 2 Mock state:**
-> - `MOCKED_AUTH = True` — Auth dùng fake token (xem `mock_auth.py`)
-> - `MOCKED_FILE_PARSING = True` — Nội dung tài liệu là synthetic text (xem `fixtures/sample_material.py`)
-> - **AI calls là THẬT** — Gọi xkiro.com API với model `google/gemini-3.5-flash`
->
-> **Tuần 2 migration:** Swap 2 file trên → JWT thật + PyMuPDF parser.
+**Day 2 Standalone Service** | Port: `8001` | Branch: `feature/ngatt-17-ai-quality-day02`  
+**AI Engine:** DeepSeek (`deepseek/deepseek-v4.1-flash:free` qua xKiro API)
 
 ---
 
-## Cài đặt & Chạy
+## 👥 Phân công nội bộ Team 3
 
+* **Thành viên A (Nga - `ngatt-17`):**
+  - Phụ trách chính: **`GenQuiz` (Hệ thống tạo bài tập tự động 3 dạng)**.
+  - Các file chính:
+    - [`quiz_generator.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/src/ai/quiz_generator.py): Lõi sinh đề từ slide, ngân hàng đề và ghi chú cá nhân; chuẩn hóa JSON đầu ra.
+    - [`run_quiz_demo.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/src/ai/run_quiz_demo.py): Script chạy thử demo độc lập in ra màn hình cực kỳ trực quan.
+    - [`sample_lecture_cs101.txt`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/src/ai/sample_lecture_cs101.txt): Slide bài giảng mẫu CS101 về C/Pointers để chạy thử nghiệm.
+    - [`routes/quiz_routes.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/src/ai/routes/quiz_routes.py): Router cung cấp các API endpoint (bao gồm `POST /api/ai/gen-quiz` theo contract).
+    - [`tests/test_genquiz_contract.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/src/ai/tests/test_genquiz_contract.py): Bộ 3 bài test kiểm chứng JSON đầu ra của 3 dạng câu hỏi.
+* **Thành viên B (Tin - `TinNguyenn`):**
+  - Phụ trách chính: **`Grounded Chat (RAG)`** & **`Phân tích Năng lực Mạnh/Yếu`**.
+  - Các file liên quan:
+    - [`chat_rag.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/src/ai/chat_rag.py): Luồng hỏi đáp bám sát slide có trích dẫn, từ chối khi thiếu chứng cứ ("Tutor, Not Solver").
+    - [`retriever.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/src/ai/retriever.py): Bộ lọc tài liệu đã duyệt (`status='approved'`), chặn tài liệu `draft`.
+    - [`routes/chat_routes.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/src/ai/routes/chat_routes.py): Endpoint hỏi đáp cho sinh viên (`POST /courses/{course_id}/chat`).
+
+---
+
+## 🚀 Hướng dẫn chạy thử nhanh phần GenQuiz (Cho Tin)
+
+Tin chỉ cần mở thư mục `src/ai` và chạy 1 trong các lệnh sau:
+
+### 1. Chạy Demo trực quan toàn bộ 3 luồng GenQuiz:
 ```bash
-cd src/ai
+# Từ thư mục gốc:
+& "src/ai/.venv/Scripts/python.exe" src/ai/run_quiz_demo.py
 
-# 1. Tạo virtual environment
-python -m venv .venv
-.venv\Scripts\activate        # Windows
-# source .venv/bin/activate   # Mac/Linux
-
-# 2. Cài dependencies
-pip install -r requirements.txt
-
-# 3. Tạo file .env
-cp .env.example .env
-# Điền XKIRO_API_KEY vào .env
-
-# 4. Chạy server
-python main.py
-# hoặc: uvicorn main:app --reload --port 8001
+# Hoặc nếu đang trong src/ai:
+python run_quiz_demo.py
 ```
+> Kết quả in ra ngay trên terminal: 1 câu Single Choice (Radio), 1 câu Multiple Choice (Checkbox), 1 câu Short Answer (Điền từ), kèm số trang và trích dẫn bằng chứng từ bài giảng CS101.
 
-Swagger docs: **http://localhost:8001/docs**
-
----
-
-## Mock tokens (Day 2)
-
-| Token | Role | Enrolled courses |
-|---|---|---|
-| `student_a_token` | student | course-a |
-| `student_b_token` | student | course-b |
-| `instructor_token` | instructor | course-a |
-| `admin_token` | admin | all |
-
-Dùng trong header: `Authorization: Bearer student_a_token`
-
----
-
-## API Endpoints
-
-### Chat RAG
-```
-POST /courses/{course_id}/chat
-Auth: Bearer <token>
-Body: { "question": "What is a variable?" }
-Response: { "answer", "citations": [{material_id, title, page, snippet}], "evidence_level" }
-```
-
-### GenQuiz — Instructor từ slide
-```
-POST /quiz/from-material
-Auth: Bearer instructor_token
-Body: { "material_id", "course_id", "topic", "difficulty", "question_type", "count" }
-Response: { "draft_id", "status": "draft", "questions": [...] }
-```
-
-### GenQuiz — Instructor từ ngân hàng đề
-```
-POST /quiz/from-bank
-Auth: Bearer instructor_token
-Body: { "bank_content": "<raw text>", "count", "difficulty", "question_type" }
-Response: { "draft_id", "status": "draft", "questions": [...] }
-```
-
-### Publish Quiz (bắt buộc instructor review)
-```
-PATCH /quiz/{draft_id}/publish
-Auth: Bearer instructor_token
-Response: { "status": "published" }
-```
-
-### GenQuiz — Student từ ghi chú riêng (PRIVATE)
-```
-POST /quiz/from-note
-Auth: Bearer student_a_token
-Body: { "note_content": "<ghi chú>", "count": 5 }
-Response: { "questions": [...], "stored": false, "privacy_notice": "..." }
-```
-> Kết quả **không lưu vào bất kỳ database hay store nào.**
-
----
-
-## Chạy tests
-
+### 2. Chạy bộ 3 test kiểm chứng cấu trúc JSON:
 ```bash
-cd src/ai
-.venv\Scripts\activate
-pytest tests/test_ai_quality.py -v
+& "src/ai/.venv/Scripts/python.exe" -m pytest src/ai/tests/test_genquiz_contract.py -v
 ```
+*(Kết quả: 3 passed in ~20s).*
 
-### 7 test cases
-
-| # | Test | Tiêu chí Day 2 |
-|---|---|---|
-| T01 | Chat trả về answer + citation có page | Citations point to valid source locations |
-| T02 | Câu hỏi ngoài scope → "insufficient" | Unsupported questions receive limitation |
-| T03 | Draft material loại khỏi retrieval | Draft/unapproved excluded from retrieval |
-| T04 | GenQuiz từ material → draft JSON | Practice-generation examples |
-| T05 | Student không publish được (403) | Instructor review required before publish |
-| T06 | from-note không ghi vào store | Private notes absent from shared systems |
-| T07 | Student B không vào course-a (403) | Cross-course access denied |
+### 3. Chạy toàn bộ test suite AI & Quality (8 test case):
+```bash
+& "src/ai/.venv/Scripts/python.exe" -m pytest src/ai/tests/test_ai_quality.py -v
+```
+*(Kết quả: 8 passed in ~40s).*
 
 ---
 
-## Cấu trúc file
+## 📋 Chuẩn hóa 3 dạng câu hỏi GenQuiz (JSON Schema)
 
-```
-src/ai/
-├── main.py                 ← FastAPI app (port 8001)
-├── config.py               ← API key, model, settings
-├── mock_auth.py            ← ⚠️ MOCKED_AUTH=True
-├── retriever.py            ← TF-IDF in-memory retrieval
-├── chat_rag.py             ← RAG + citation
-├── quiz_generator.py       ← GenQuiz 3 luồng
-├── routes/
-│   ├── chat_routes.py
-│   ├── quiz_routes.py
-│   └── health_routes.py
-├── fixtures/
-│   └── sample_material.py  ← ⚠️ MOCKED_FILE_PARSING=True
-├── tests/
-│   └── test_ai_quality.py  ← 7 test cases
-├── requirements.txt
-├── .env.example
-└── README.md
+Theo thỏa thuận API Contract của nhóm, hàm `gen_quiz_standard()` và endpoint `POST /api/ai/gen-quiz` trả về định dạng:
+
+```json
+{
+  "lesson_id": "cs101-pointers",
+  "topic": "Cú pháp cơ bản & Con trỏ",
+  "generated_at": "2026-09-15T15:00:00Z",
+  "questions": [
+    {
+      "id": "q1",
+      "type": "single_choice",
+      "topic": "Kiểu dữ liệu cơ bản",
+      "question": "Trong ngôn ngữ C trên hệ thống 64-bit hiện đại, kiểu int thường chiếm bao nhiêu bytes?",
+      "options": ["1 byte", "4 bytes", "8 bytes", "2 bytes"],
+      "correct_answer": 1,
+      "explanation": "Kiểu int có kích thước 4 bytes theo chuẩn...",
+      "citation": {
+        "source_file": "Lecture01_Intro.pdf",
+        "page": 1,
+        "evidence_snippet": "int: 4 bytes (standard integer type)"
+      }
+    },
+    {
+      "id": "q2",
+      "type": "multiple_choice",
+      "topic": "Quản lý bộ nhớ động",
+      "question": "Những hàm nào sau đây trong stdlib.h dùng để cấp phát bộ nhớ? (Chọn tất cả đáp án đúng)",
+      "options": ["malloc()", "calloc()", "free()", "realloc()"],
+      "correct_answer": [0, 1, 3],
+      "explanation": "malloc, calloc, realloc cấp phát/đổi kích thước heap. free() là giải phóng.",
+      "citation": {
+        "source_file": "Lecture02_Pointers.pdf",
+        "page": 3,
+        "evidence_snippet": "malloc, calloc, realloc allocate memory on the heap"
+      }
+    },
+    {
+      "id": "q3",
+      "type": "short_answer",
+      "topic": "Toán tử con trỏ",
+      "question": "Toán tử nào trong C dùng để lấy giá trị tại địa chỉ ô nhớ mà con trỏ đang trỏ tới?",
+      "options": [],
+      "correct_answer": "*",
+      "keywords": ["*", "dereference", "toán tử *", "indirection"],
+      "explanation": "Toán tử '*' (dereference/indirection) dùng để truy xuất giá trị...",
+      "citation": {
+        "source_file": "Lecture02_Pointers.pdf",
+        "page": 2,
+        "evidence_snippet": "The dereference operator '*' accesses the value stored..."
+      }
+    }
+  ]
+}
 ```
 
 ---
 
-## Tuần 2 — Migration path
+## 🔌 Danh sách API Endpoints của AI Service (Port 8001)
 
-| Tuần 2 việc cần làm | File cần sửa |
-|---|---|
-| Swap mock auth → JWT từ platform backend (port 8000) | `mock_auth.py` → `get_current_user()` |
-| Swap synthetic text → PyMuPDF đọc file thật | `fixtures/sample_material.py` → `retriever.py` |
-| Quiz drafts lưu vào bảng `quiz_drafts` (PostgreSQL) | `quiz_generator.py` → `_DRAFT_STORE` |
-| Upgrade retrieval → pgvector semantic search | `retriever.py` → `retrieve()` |
+| Phương thức | Đường dẫn | Phân quyền | Mô tả |
+|---|---|---|---|
+| `POST` | `/api/ai/gen-quiz` | Public / Team | **API Contract cho Team 1 & Team 2** sinh 3 dạng bài tập |
+| `POST` | `/quiz/from-material` | Instructor / TA | Giảng viên sinh đề từ học liệu đã duyệt (tạo draft) |
+| `POST` | `/quiz/from-bank` | Instructor / TA | Giảng viên sinh đề từ text ngân hàng câu hỏi (tạo draft) |
+| `PATCH` | `/quiz/{draft_id}/publish` | Instructor / TA | Duyệt và xuất bản đề (bắt buộc trước khi SV xem) |
+| `POST` | `/quiz/from-note` | Student | Sinh viên tự ôn tập từ ghi chú riêng (**không lưu DB**) |
+| `POST` | `/courses/{course_id}/chat` | Student / All | Grounded Chat RAG kèm trích dẫn số trang |
+| `GET` | `/health` | All | Kiểm tra tình trạng hoạt động của service |
+
+---
+
+## ⚙️ Cấu hình môi trường (.env)
+
+Tất cả đã cấu hình sẵn trong `src/ai/.env` (được bảo vệ trong `.gitignore`):
+```env
+XKIRO_API_KEY=sk-xt-db53d6945bf9541ae208288e5bc6b8868261af803df2c6e0
+MODEL_NAME=deepseek/deepseek-v4.1-flash:free
+AI_SERVICE_PORT=8001
+```
