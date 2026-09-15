@@ -290,9 +290,26 @@ def test_20_student_quiz_payload_hides_correct_answers():
 
 
 def test_21_student_cannot_open_draft_quiz():
-    token = get_token_for(STUDENT_A_EMAIL)
-    res = client.get(f"/courses/{COURSE_A_ID}/quizzes/{QUIZ_DRAFT}", headers=auth_headers(token))
-    assert res.status_code == 403, res.text
+    # Creates its own draft rather than relying on the seeded one staying unpublished,
+    # so the check holds whatever state the shared development database is in.
+    staff = get_token_for(INSTRUCTOR_EMAIL)
+    created = client.post(f"/courses/{COURSE_A_ID}/quizzes/", headers=auth_headers(staff),
+                          json={"title": "Draft visibility probe", "week_number": 8,
+                                "questions": [{"question_type": "short_answer",
+                                               "prompt": "probe", "correct_answer": "x"}]})
+    assert created.status_code == 201, created.text
+    quiz_id = created.json()["id"]
+    assert created.json()["status"] == "draft"
+
+    try:
+        student = get_token_for(STUDENT_A_EMAIL)
+        res = client.get(f"/courses/{COURSE_A_ID}/quizzes/{quiz_id}", headers=auth_headers(student))
+        assert res.status_code == 403, res.text
+
+        listed = client.get(f"/courses/{COURSE_A_ID}/quizzes/", headers=auth_headers(student))
+        assert quiz_id not in {q["id"] for q in listed.json()}
+    finally:
+        client.delete(f"/courses/{COURSE_A_ID}/quizzes/{quiz_id}", headers=auth_headers(staff))
 
 
 def test_22_submission_is_graded_server_side_and_awards_points():
