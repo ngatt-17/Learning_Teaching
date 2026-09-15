@@ -78,65 +78,122 @@ flowchart TD
 
 ---
 
-# 2. CHI TIẾT KHỐI 1: GENQUIZ ENGINE (LÀM NHƯ NÀO & CHẠY NHƯ NÀO)
+### 1.2 Bảng tra cứu nhanh toàn bộ File mã nguồn trong thư mục `rag/`
 
-### 2.1 Bản chất nghiệp vụ & Các chế độ sinh đề
-GenQuiz không chỉ đơn thuần là gửi văn bản lên LLM, mà là một **quy trình khảo thí chuẩn mực có kiểm soát chất lượng (Quality Gating)**:
-
-| Chế độ (Mode) | Endpoint | Quyền gọi (Role) | Cơ chế lưu trữ | Mục đích sư phạm |
-|---|---|---|---|---|
-| **1. From Material** | `POST /quiz/from-material` | Instructor / TA / Admin | Tạo `draft_id`, lưu vào Draft Store (`status="draft"`). | Tạo bài tập từ slide bài giảng; bắt buộc GV duyệt mới được xuất bản. |
-| **2. From Bank** | `POST /quiz/from-bank` | Instructor / TA / Admin | Tạo `draft_id`, lưu vào Draft Store (`status="draft"`). | Chuẩn hóa ngân hàng đề thô/cũ của GV thành cấu trúc 3 dạng. |
-| **3. From Note** | `POST /quiz/from-note` | Student | **Không lưu (`stored=false`)**, không tạo `draft_id`. | Phục vụ sinh viên tự kiểm tra cá nhân từ ghi chú riêng tư. |
+| Khối chức năng | File mã nguồn | Vai trò cốt lõi |
+|---|---|---|
+| **Hạ tầng & Cấu hình** | [`rag/main.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/main.py) | Khởi tạo ứng dụng FastAPI, đăng ký Router, cấu hình CORS, chạy port 8001. |
+| | [`rag/config.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/config.py) | Quản lý biến môi trường, API key (`XKIRO_API_KEY`), model AI mặc định, cổng dịch vụ. |
+| | [`rag/mock_auth.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/mock_auth.py) | Giả lập cơ chế xác thực Token Bearer và phân quyền theo môn học (RBAC). |
+| | [`rag/routes/health_routes.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/routes/health_routes.py) | Endpoint `GET /health` kiểm tra trạng thái hoạt động của hệ thống. |
+| **Khối 1: GenQuiz** | [`rag/quiz_generator.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/quiz_generator.py) | Trái tim sinh đề 3 dạng: Prompting, gọi LLM, parse JSON, validate 4 options, fallback tự động, Draft Store. |
+| | [`rag/routes/quiz_routes.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/routes/quiz_routes.py) | Endpoints sinh đề từ slide, từ ngân hàng, từ ghi chú cá nhân và duyệt xuất bản. |
+| | [`rag/run_quiz_demo.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/run_quiz_demo.py) | Script demo Terminal sinh bài tập 3 dạng trực tiếp từ file text bài giảng. |
+| | [`rag/sample_lecture_cs101.txt`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/sample_lecture_cs101.txt) | File bài giảng mẫu C Programming dùng cho việc test sinh câu hỏi. |
+| **Khối 2: Chat RAG** | [`rag/chat_rag.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/chat_rag.py) | Bộ điều phối RAG chính: truy xuất chunks, lọc ngưỡng liên quan (0.05), gọi LLM trả lời kèm citations. |
+| | [`rag/grounded_chat.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/grounded_chat.py) | Bộ lọc 4 rào chắn: chặn giải bài tập hộ (Socratic), chặn slide draft, chặn môn khác, tổng hợp câu trả lời. |
+| | [`rag/retriever.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/retriever.py) | Bộ máy tìm kiếm TF-IDF & Cosine Similarity trên các slide bài giảng đã duyệt. |
+| | [`rag/routes/chat_routes.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/routes/chat_routes.py) | Endpoint `POST /courses/{course_id}/chat` tích hợp xác thực và truy xuất tài liệu. |
+| | [`rag/fixtures/sample_material.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/fixtures/sample_material.py) & [`mock_materials.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/mock_materials.py) | Kho dữ liệu slide bài giảng mẫu (approved vs draft) phục vụ kiểm thử. |
+| | [`rag/chat_cli.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/chat_cli.py) & [`rag/demo.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/demo.py) | Các script chạy thử nghiệm hỏi đáp RAG tương tác trực tiếp trên Terminal. |
+| **Khối 3: Analyst** | [`rag/tests/test_ai_quality.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/tests/test_ai_quality.py) | Giải thuật tính % Mastery, nhận diện điểm yếu, ánh xạ slide ôn tập và bảo vệ dữ liệu cá nhân. |
+| **Kiểm thử tự động** | [`rag/test_rag.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/test_rag.py) & [`tests/test_genquiz_contract.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/tests/test_genquiz_contract.py) | Bộ 16 test cases tự động kiểm tra tính hợp lệ của schema, logic và bảo mật. |
 
 ---
 
-### 2.2 Sơ đồ luồng xử lý chi tiết từng bước (Step-by-Step Flow)
+# 2. CHI TIẾT KHỐI 1: GENQUIZ ENGINE (LÀM NHƯ NÀO & CHẠY NHƯ NÀO)
+
+### 2.1 Bảng phân công File mã nguồn & Chức năng chi tiết
+
+| File | Vai trò kỹ thuật | Các hàm / Biến cốt lõi | Chi tiết nhiệm vụ & Cách làm trong code |
+|---|---|---|---|
+| [`rag/quiz_generator.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/quiz_generator.py) | **Trái tim xử lý sinh đề, chuẩn hóa và dự phòng (Core Engine)** | • `generate_quiz_from_material()`<br>• `generate_quiz_from_bank()`<br>• `generate_quiz_from_note()`<br>• `generate_quiz_standard()`<br>• `_build_quiz_prompt()`<br>• `_call_llm_json()`<br>• `_validate_and_normalize_question()`<br>• `_generate_fallback_quiz()`<br>• `publish_quiz_draft()`<br>• `_DRAFT_STORE` | • Nhận đầu vào bài học/ngân hàng câu hỏi/ghi chú.<br>• Xây dựng Prompt ràng buộc schema JSON nghiêm ngặt.<br>• Gọi API LLM qua client `OpenAI` với model `gpt-4o-mini` (hoặc DeepSeek/xKiro).<br>• Gỡ bỏ markdown code block (` ```json `) và parse JSON an toàn.<br>• Kiểm tra (validate) từng câu hỏi: đúng 4 options, index số nguyên, keywords.<br>• Kích hoạt `_generate_fallback_quiz()` bằng regex bóc tách slide khi LLM gặp sự cố.<br>• Lưu đề vào bộ nhớ đệm `_DRAFT_STORE` với UUID và trạng thái `draft`. |
+| [`rag/routes/quiz_routes.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/routes/quiz_routes.py) | **Cổng giao tiếp API (FastAPI Router)** | • `POST /quiz/from-material`<br>• `POST /quiz/from-bank`<br>• `POST /quiz/from-note`<br>• `PATCH /quiz/{draft_id}/publish`<br>• `GET /quiz/{draft_id}`<br>• `POST /api/ai/gen-quiz` (Contract) | • Định nghĩa các Pydantic schema: `FromMaterialRequest`, `FromBankRequest`, `FromNoteRequest`, `GenQuizStandardRequest`.<br>• Kiểm tra quyền người dùng qua dependency `Depends(get_current_user)`.<br>• Chặn sinh viên không được phép xuất bản đề (trả HTTP 403 Forbidden).<br>• Gọi hàm tương ứng trong `quiz_generator.py` và trả về HTTP Response 200/201. |
+| [`rag/run_quiz_demo.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/run_quiz_demo.py) | **Script chạy thử nghiệm trên Terminal (CLI Demo)** | • `main()`<br>• `format_question_cli()` | • Đọc trực tiếp file bài giảng mẫu [`sample_lecture_cs101.txt`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/sample_lecture_cs101.txt).<br>• Gọi trực tiếp `generate_quiz_from_material()` offline không cần bật web server.<br>• In ra màn hình Terminal toàn bộ 3 dạng câu hỏi kèm đáp án, lời giải thích và trích dẫn số trang. |
+| [`rag/sample_lecture_cs101.txt`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/sample_lecture_cs101.txt) | **Dữ liệu bài giảng mẫu chuẩn (Test Fixture)** | Nội dung giáo trình C Programming: Variables, Control Flow, Functions | Dùng làm nguồn văn bản chuẩn để test sinh câu hỏi trắc nghiệm, nhiều đáp án và tự luận ngắn. |
+| [`rag/fixtures/sample_material.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/fixtures/sample_material.py) | **Cơ sở dữ liệu học liệu giả lập (Mock Material DB)** | • `get_material(material_id)`<br>• `get_approved_materials_for_course()` | Giả lập DB PostgreSQL: lưu trữ metadata tài liệu (`material_id`, `course_id`, `title`, `pages`, `chunks`, `status: approved/draft`). |
+| [`rag/tests/test_genquiz_contract.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/tests/test_genquiz_contract.py) | **Kiểm thử hợp đồng dữ liệu (API Contract Tests)** | • `test_single_choice_structure()`<br>• `test_multiple_choice_structure()`<br>• `test_short_answer_structure()` | Tự động kiểm tra từng trường dữ liệu trả về theo đúng hợp đồng đã thống nhất với Team 1 (Frontend) và Team 2 (Backend). |
+| [`rag/tests/test_ai_quality.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/tests/test_ai_quality.py) | **Kiểm thử chất lượng & bảo mật AI (Quality Checklist)** | • `test_T04_genquiz_from_material_returns_draft()`<br>• `test_T05_genquiz_publish_requires_instructor()`<br>• `test_T06_genquiz_from_note_not_stored()` | Kiểm chứng tự động: đề mới tạo luôn là draft, chỉ giảng viên mới được duyệt, sinh viên ôn tập từ note không bao giờ bị lưu DB. |
+
+---
+
+### 2.2 Các chế độ sinh đề & Quy trình nghiệp vụ
+GenQuiz không chỉ đơn thuần là gửi văn bản lên LLM, mà là một **quy trình khảo thí chuẩn mực có kiểm soát chất lượng (Quality Gating)**:
+
+| Chế độ (Mode) | Endpoint | Quyền gọi (Role) | File & Hàm xử lý | Cơ chế lưu trữ | Mục đích sư phạm |
+|---|---|---|---|---|---|
+| **1. From Material** | `POST /quiz/from-material` | Instructor / TA / Admin | `quiz_routes.py` $\rightarrow$ `quiz_generator.generate_quiz_from_material()` | Tạo `draft_id`, lưu vào `_DRAFT_STORE` (`status="draft"`). | Tạo bài tập từ slide bài giảng; bắt buộc GV duyệt mới được xuất bản. |
+| **2. From Bank** | `POST /quiz/from-bank` | Instructor / TA / Admin | `quiz_routes.py` $\rightarrow$ `quiz_generator.generate_quiz_from_bank()` | Tạo `draft_id`, lưu vào `_DRAFT_STORE` (`status="draft"`). | Chuẩn hóa ngân hàng đề thô/cũ của GV thành cấu trúc 3 dạng. |
+| **3. From Note** | `POST /quiz/from-note` | Student | `quiz_routes.py` $\rightarrow$ `quiz_generator.generate_quiz_from_note()` | **Không lưu (`stored=false`)**, không tạo `draft_id`. | Phục vụ sinh viên tự kiểm tra cá nhân từ ghi chú riêng tư. |
+| **4. Team Contract** | `POST /api/ai/gen-quiz` | Frontend / Backend | `quiz_routes.py` $\rightarrow$ `quiz_generator.generate_quiz_standard()` | Trả về trực tiếp mảng câu hỏi theo hợp đồng chung. | API chuẩn hóa phục vụ ghép nối hệ thống toàn dự án. |
+
+---
+
+### 2.3 Luồng xử lý kỹ thuật chi tiết từng bước (Step-by-Step Execution Mechanics)
+
+Dưới đây là cơ chế hoạt động thực tế từng bước bên trong mã nguồn:
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor GV as Giảng viên
-    participant FE as Frontend Next.js
-    participant API as Router (/quiz/from-material)
+    actor GV as Giảng viên (Instructor)
+    participant FE as Frontend (Team 1)
+    participant Router as quiz_routes.py
+    participant Auth as mock_auth.py
     participant Core as quiz_generator.py
-    participant LLM as OpenAI / DeepSeek / xKiro
-    participant Store as In-Memory Draft Store
+    participant Fixture as sample_material.py
+    participant LLM as xKiro / OpenAI API
+    participant Store as In-Memory _DRAFT_STORE
 
-    GV->>FE: Chọn Slide + Số lượng (3 câu) + Mức độ (Medium) + Dạng câu (Tất cả)
-    FE->>API: POST /quiz/from-material kèm Header Bearer Token
-    API->>Core: generate_quiz_from_material(material_id, count=3, difficulty="medium")
+    GV->>FE: Chọn Slide + Số lượng (3 câu) + Mức độ (Medium) + Dạng câu
+    FE->>Router: POST /quiz/from-material (Body JSON + Bearer Token)
     
     rect rgb(240, 248, 255)
-        Note over Core: Bước 1: Trích xuất nội dung bài học theo material_id
-        Note over Core: Bước 2: Xây dựng System Prompt với Structured JSON Schema
-        Core->>LLM: Gửi Prompt yêu cầu sinh đúng 3 dạng câu hỏi + citations
+        Note over Router,Auth: Bước 1: Xác thực quyền hạn Giảng viên
+        Router->>Auth: require_course_access(course_id, current_user)
+        Auth-->>Router: Xác thực hợp lệ (Role = instructor / ta / admin)
         
-        alt LLM hoạt động bình thường
-            LLM-->>Core: Trả về chuỗi JSON thô
-            Note over Core: Bước 3: Clean chuỗi (gỡ markdown ```json), parse json.loads()
-        else LLM lỗi mạng / hết quota / timeout
-            Note over Core: Bước 3 (Dự phòng): Kích hoạt _generate_fallback_quiz() bóc tách trực tiếp từ text
+        Note over Router,Core: Bước 2: Gọi hàm xử lý nghiệp vụ
+        Router->>Core: generate_quiz_from_material(material_id, count, difficulty, topic)
+        
+        Note over Core,Fixture: Bước 3: Lấy nội dung học liệu đã duyệt
+        Core->>Fixture: get_material(material_id)
+        Fixture-->>Core: Trả về text các trang (Page Chunks)
+        
+        Note over Core: Bước 4: Xây dựng Prompt có ép cấu trúc JSON Schema
+        Core->>Core: _build_quiz_prompt(context, count, types, difficulty, topic)
+        
+        Note over Core,LLM: Bước 5: Gọi AI Model sinh câu hỏi
+        Core->>LLM: chat.completions.create(messages, temperature=0.3)
+        
+        alt LLM trả về thành công
+            LLM-->>Core: Chuỗi JSON chứa danh sách câu hỏi
+            Note over Core: Bước 6a: Làm sạch chuỗi (bỏ ```json), parse json.loads()
+        else LLM lỗi mạng / hết quota / trả về sai cú pháp
+            Note over Core: Bước 6b (Dự phòng): Kích hoạt _generate_fallback_quiz() bóc tách slide
         end
         
-        Note over Core: Bước 4: Validation & Normalization (Kiểm tra từng câu hỏi)
-        Note over Core: - single_choice / multiple_choice: Bắt buộc đúng 4 options
-        Note over Core: - short_answer: options=[], có keywords chấm điểm
-        Note over Core: - Bắt buộc có citation (source_file, page, evidence_snippet)
+        Note over Core: Bước 7: Chuẩn hóa & Thẩm định chất lượng (Normalization)
+        loop Duyệt qua từng câu hỏi
+            Core->>Core: _validate_and_normalize_question()
+            Note over Core: • Ép đúng 4 options cho single/multiple_choice<br>• Ép correct_answer thành int (hoặc list[int])<br>• Gán citation: source_file, page, evidence_snippet
+        end
+        
+        Note over Core,Store: Bước 8: Đóng gói Đề nháp và lưu vào kho tạm
+        Core->>Store: Lưu QuizDraft với status = "draft", gán UUID draft_id
     end
 
-    Core->>Store: Gán draft_id, lưu bộ câu hỏi với status = "draft"
-    Core-->>API: Trả về QuizDraft Object
-    API-->>FE: 200 OK (JSON đề nháp)
-    FE-->>GV: Hiển thị giao diện xem trước đề thi
+    Core-->>Router: Trả về QuizDraft Dict
+    Router-->>FE: HTTP 200 OK kèm payload đề thi nháp
+    FE-->>GV: Render giao diện xem trước & chỉnh sửa câu hỏi
 
-    opt Giảng viên chỉnh sửa hoặc xuất bản
-        GV->>FE: Bấm nút "Phê duyệt vào ngân hàng"
-        FE->>API: PATCH /quiz/{draft_id}/publish
-        API->>Core: publish_quiz_draft(draft_id)
-        Note over Core: Kiểm tra draft_id tồn tại -> Cập nhật status = "published"
-        Core-->>API: Trả về thông báo xuất bản thành công
-        API-->>FE: 200 OK -> Câu hỏi sẵn sàng cho sinh viên làm
+    opt Giảng viên phê duyệt xuất bản
+        GV->>FE: Bấm nút "Phê duyệt vào ngân hàng câu hỏi"
+        FE->>Router: PATCH /quiz/{draft_id}/publish
+        Router->>Core: publish_quiz_draft(draft_id)
+        Core->>Store: Cập nhật _DRAFT_STORE[draft_id]["status"] = "published"
+        Core-->>Router: {"status": "published", "draft_id": draft_id}
+        Router-->>FE: HTTP 200 OK -> Đề thi sẵn sàng cho học sinh làm bài
     end
 ```
 
@@ -223,14 +280,29 @@ Khi tích hợp LLM vào thực tế, hệ thống có thể gặp các sự c�
 
 # 3. CHI TIẾT KHỐI 2: GROUNDED CHAT RAG (LÀM NHƯ NÀO & CHẠY NHƯ NÀO)
 
-### 3.1 Bản chất nghiệp vụ & Triết lý sư phạm
+### 3.1 Bảng phân công File mã nguồn & Chức năng chi tiết
+
+| File | Vai trò kỹ thuật | Các hàm / Biến cốt lõi | Chi tiết nhiệm vụ & Cách làm trong code |
+|---|---|---|---|
+| [`rag/chat_rag.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/chat_rag.py) | **Bộ điều phối RAG chính (RAG Orchestrator)** | • `answer_question()`<br>• `_SYSTEM_PROMPT`<br>• `_INSUFFICIENT_ANSWER`<br>• `MIN_RELEVANCE_SCORE = 0.05` | • Nhận câu hỏi người dùng và `course_id`.<br>• Gọi `retriever.retrieve(question, course_id, top_k=5)`.<br>• Lọc bỏ các chunk có điểm tương đồng cosine < 0.05.<br>• Nếu không có chunk hợp lệ $\rightarrow$ Trả về ngay `evidence_level = "insufficient"`, không gọi LLM.<br>• Nếu có chunk $\rightarrow$ Ghép ngữ cảnh vào `_SYSTEM_PROMPT` với nguyên tắc "Tutor, Not Solver".<br>• Gọi API LLM, đóng gói câu trả lời kèm `citations` (`material_id`, `title`, `page`, `snippet`). |
+| [`rag/grounded_chat.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/grounded_chat.py) | **Bộ xử lý RAG 4 rào chắn bảo vệ (4 Guardrails Engine)** | • `is_direct_solver_request()`<br>• `retrieve_approved_chunks()`<br>• `synthesize_vietnamese_answer()`<br>• `answer_grounded_chat()` | • Rào chắn 1: Quét regex phát hiện sinh viên xin giải bài/xin code $\rightarrow$ Trả lời Socratic định hướng gợi mở.<br>• Rào chắn 2: Lọc cứng tài liệu, loại bỏ 100% slide môn khác và slide `status == "draft"`.<br>• Rào chắn 3: Chống ảo giác (Anti-Hallucination), từ chối chuẩn tiếng Việt nếu thiếu căn cứ.<br>• Rào chắn 4: Diễn giải sư phạm tiếng Việt kết hợp trích dẫn câu gốc tiếng Anh từ bài giảng. |
+| [`rag/retriever.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/retriever.py) | **Bộ máy tìm kiếm & xếp hạng TF-IDF (Text Search Engine)** | • `_tokenize()`<br>• `_tf()`<br>• `_idf()`<br>• `retrieve()` | • Tách từ bằng Regex Unicode `[a-zA-Z\u00C0-\u024F\u1E00-\u1EFF]+` (hỗ trợ cả tiếng Anh lẫn tiếng Việt).<br>• Tính tần suất xuất hiện từ trong tài liệu (TF) và nghịch đảo tần suất tài liệu (IDF) có làm mịn Laplace (`log((N+1)/(df+1)) + 1.0`).<br>• Tính độ tương đồng góc Cosine giữa vector câu hỏi và từng chunk slide.<br>• Trả về top K chunk có điểm số cao nhất kèm số trang bài giảng. |
+| [`rag/routes/chat_routes.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/routes/chat_routes.py) | **Cổng API Chat RAG (FastAPI Router)** | • `POST /courses/{course_id}/chat`<br>• `chat()` | • Kiểm tra token sinh viên qua `require_course_access(course_id, current_user)`.<br>• Chặn chéo môn: sinh viên môn B không thể chat với tài liệu môn A (HTTP 403 Forbidden).<br>• Gọi hàm `answer_question` từ `chat_rag.py`.<br>• Trả về JSON: `answer`, `citations`, `evidence_level`, `user_id`. |
+| [`rag/mock_auth.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/mock_auth.py) | **Phân quyền & Kiểm soát truy cập (RBAC)** | • `MockUser`<br>• `get_current_user()`<br>• `require_course_access()` | • Quản lý các vai trò: `student`, `instructor`, `ta`, `admin`.<br>• Ánh xạ quyền theo từng môn học (`course_id`). |
+| [`rag/mock_materials.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/mock_materials.py) | **Kho học liệu kiểm thử phân quyền (Mock Material Store)** | • `MOCK_MATERIALS` | • Chứa các slide đã duyệt (`approved`) và slide đang soạn (`draft`).<br>• Phân định giữa môn CS101 và môn EE201 để kiểm thử rào chắn cách ly môn học. |
+| [`rag/chat_cli.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/chat_cli.py) | **Công cụ Chat dòng lệnh tương tác (Interactive CLI)** | • Vòng lặp `while True` nhận input terminal | Cho phép dev/tester gõ câu hỏi trực tiếp trên Terminal để test phản xạ RAG và trích dẫn trang mà không cần giao diện Web. |
+| [`rag/test_rag.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/test_rag.py) & [`rag/tests/test_ai_quality.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/tests/test_ai_quality.py) | **Kiểm thử tự động RAG & Guardrails (Quality Suite)** | 5 test cases unit + 4 test cases guardrails | Đảm bảo 100% không bao giờ lộ tài liệu draft, trích dẫn chuẩn số trang, và kích hoạt Socratic tutor khi bị gài giải hộ bài tập. |
+
+---
+
+### 3.2 Bản chất nghiệp vụ & Triết lý sư phạm
 Grounded Chat trong môi trường giáo dục đại học bắt buộc tuân thủ 2 nguyên tắc tối thượng:
 1. **Grounded Retrieval (Hỏi đáp có căn cứ):** Mọi phát biểu đều phải có bằng chứng từ slide bài giảng đã duyệt; nếu bài giảng không dạy, AI không được tự ý bịa đặt (loại bỏ Hallucination).
 2. **Tutor, Not Solver (Gia sư dẫn dắt, không giải bài hộ):** Khi sinh viên xin code hoặc nhờ làm bài tập, AI đóng vai trò như một người thầy gợi mở, hướng dẫn tư duy từng bước chứ không cung cấp đáp án sẵn.
 
 ---
 
-### 3.2 Sơ đồ luồng dây chuyền 4 Rào chắn Bảo vệ (4 Guardrails Flowchart)
+### 3.3 Sơ đồ luồng dây chuyền 4 Rào chắn Bảo vệ (4 Guardrails Flowchart)
 
 ```mermaid
 flowchart TD
@@ -288,7 +360,16 @@ Mỗi câu trả lời hợp lệ luôn trả về danh sách các nguồn tríc
 
 # 4. CHI TIẾT KHỐI 3: COMPETENCY ANALYST (PHÂN TÍCH NĂNG LỰC & LỖ HỔNG)
 
-### 4.1 Bản chất nghiệp vụ & Nguyên tắc bảo mật "Private means private"
+### 4.1 Bảng phân công File mã nguồn & Chức năng chi tiết
+
+| File | Vai trò kỹ thuật | Các hàm / Biến cốt lõi | Chi tiết nhiệm vụ & Cách làm trong code |
+|---|---|---|---|
+| [`rag/tests/test_ai_quality.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/tests/test_ai_quality.py) | **Module giải thuật & Kiểm thử phân tích năng lực** | • `compute_topic_mastery()`<br>• `identify_weaknesses()`<br>• `generate_study_recommendation()`<br>• `TOPIC_REVIEW_MAP` | • Gom nhóm câu hỏi sinh viên đã làm theo từng `topic`.<br>• Tính điểm Mastery (%) theo công thức tỷ lệ câu đúng trên tổng số câu.<br>• Nhận diện lỗ hổng kiến thức (`weaknesses`) khi điểm < 60% hoặc chat hỏi nhiều lần.<br>• Ánh xạ topic yếu vào `TOPIC_REVIEW_MAP` để đưa ra khuyến nghị ôn tập kèm chính xác tên slide và số trang bài giảng. |
+| [`rag/routes/quiz_routes.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/routes/quiz_routes.py) | **Bảo vệ ranh giới dữ liệu cá nhân** | • `FromNoteRequest`<br>• `stored: False` | • Đảm bảo khi sinh viên tạo quiz từ ghi chú cá nhân, dữ liệu không được lưu vào DB để Analyst không vô tình vi phạm quyền riêng tư. |
+
+---
+
+### 4.2 Bản chất nghiệp vụ & Nguyên tắc bảo mật "Private means private"
 Sau khi sinh viên hoàn thành các bài Quiz và đặt câu hỏi trên lớp, hệ thống cần chỉ ra cho sinh viên biết:
 * Mình đã nắm vững chủ đề nào?
 * Mình đang hổng kiến thức ở phần nào?
@@ -303,7 +384,7 @@ Sau khi sinh viên hoàn thành các bài Quiz và đặt câu hỏi trên lớp
 
 ---
 
-### 4.2 Sơ đồ luồng thuật toán phân tích
+### 4.3 Sơ đồ luồng thuật toán phân tích
 
 ```mermaid
 flowchart LR
