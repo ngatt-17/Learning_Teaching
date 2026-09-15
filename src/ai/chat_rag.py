@@ -32,7 +32,7 @@ class RAGResponse(TypedDict):
 
 
 # ── Client ────────────────────────────────────────────────────────────────
-_client = OpenAI(api_key=XKIRO_API_KEY, base_url=XKIRO_BASE_URL)
+_client = OpenAI(api_key=XKIRO_API_KEY or "dummy_test_key", base_url=XKIRO_BASE_URL)
 
 # ── Prompts ───────────────────────────────────────────────────────────────
 _SYSTEM_PROMPT = """You are an academic tutor for VinUniversity's CECS AI Learning Hub.

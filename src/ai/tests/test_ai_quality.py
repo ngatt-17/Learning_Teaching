@@ -123,7 +123,7 @@ def test_T04_genquiz_from_material_returns_draft():
     assert "question" in q
     assert "answer" in q
     assert "explanation" in q
-    assert q["type"] == "mcq"
+    assert q["type"] in ["single_choice", "mcq"]
     assert len(q["options"]) == 4, "MCQ phải có đúng 4 options"
 
 

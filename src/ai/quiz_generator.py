@@ -71,7 +71,7 @@ _DRAFT_STORE: dict[str, QuizDraft] = {}
 
 
 # ── OpenAI client ─────────────────────────────────────────────────────────
-_client = OpenAI(api_key=XKIRO_API_KEY, base_url=XKIRO_BASE_URL)
+_client = OpenAI(api_key=XKIRO_API_KEY or "dummy_test_key", base_url=XKIRO_BASE_URL)
 
 
 # ── Prompt Builder ─────────────────────────────────────────────────────────
