@@ -8,8 +8,8 @@
   - **02–04/10/2026:** Chuẩn bị dữ liệu mẫu, tổng duyệt kịch bản 3 vai trò và tài liệu hướng dẫn.
   - **05/10/2026:** Ra mắt và trình diễn chính thức (Showcase Launch) trước Hội đồng & Giảng viên.
 - **Thành viên tham gia (6 thành viên):**
-  - Nguyễn Thanh Tùng (`Tung205`) 
-  - Đỗ Quang Vinh (`aetrna300bpm`) 
+  - Nguyễn Thanh Tùng (`Tung205`)
+  - Đỗ Quang Vinh (`aetrna300bpm`)
   - Tín Nguyễn (`TinNguyenn`)
   - Công Ngọc (`congngoc308`)
   - Tạ Thị Nga (`ngatt-17`)
@@ -20,10 +20,12 @@
 # 1. Sản Phẩm (Product)
 
 ## 1.1 Tầm Nhìn Sản Phẩm (Product Vision)
-**CECS AI Learning Hub** là nền tảng trợ lý học tập thông minh, chuyên biệt hóa cho sinh viên và giảng viên Viện Kỹ thuật & Khoa học Máy tính (CECS) — VinUniversity. Khác biệt hoàn toàn với các chatbot AI thương mại mở (như ChatGPT, Claude thuần túy), hệ thống hoạt động như một **Gia sư Socratic 24/7 (Tutor, Not Solver)**:
-1. Mọi câu trả lời học thuật đều **bắt buộc trích dẫn chính xác (grounded citations)** từ tài liệu giảng dạy đã được giảng viên phê duyệt.
-2. Tuyệt đối **không giải bài tập hộ** mà dẫn dắt tư duy qua các bậc thang gợi ý (Scaffolded Hints).
-3. Thiết lập không gian học tập cá nhân an toàn tuyệt đối theo nguyên tắc **"Riêng tư là riêng tư" (Private means private)**, giúp người học thoải mái thực hành, tự ghi chép và mắc lỗi mà không lo bị giám sát hay đánh giá điểm số.
+**CECS AI Learning Hub** là nền tảng trợ lý học tập thông minh, chuyên biệt hóa cho sinh viên và giảng viên Viện Kỹ thuật & Khoa học Máy tính (CECS) — VinUniversity.
+
+Khác biệt hoàn toàn với các chatbot AI thương mại mở (như ChatGPT hay Claude thuần túy), hệ thống đóng vai trò như một **Gia sư Socratic 24/7 ("Tutor, Not Solver")**:
+1. Mọi câu trả lời học thuật đều **bắt buộc trích dẫn chính xác từ tài liệu đã được giảng viên duyệt**, có thể nhấp chuột để nhảy thẳng tới trang tài liệu tương ứng (`[Tên tài liệu, Trang X]`).
+2. Tuyệt đối **không giải bài tập hộ** mà dẫn dắt tư duy qua các bậc thang gợi ý (Scaffolded Hints) để người học tự rèn luyện khả năng giải quyết vấn đề.
+3. Thiết lập không gian học tập cá nhân an toàn tuyệt đối theo nguyên tắc **"Riêng tư là riêng tư" (Private means private)**, giúp người học thoải mái thực hành, tự ghi chép và thử nghiệm mà không lo bị theo dõi hay chấm điểm.
 
 ```mermaid
 flowchart TD
@@ -70,8 +72,11 @@ flowchart TD
         S10 & S11 --> S12["AI chấm điểm định hình & Giải thích chi tiết"]
         S12 --> S13["Phân tích điểm mạnh / điểm yếu & Tạo bài tập bù đắp lỗ hổng"]
         
+        %% Tùy chọn 3: Games
+        S2 --> S14["Tùy chọn 3: Game ôn tập kiến thức & giải đố"]
+        
         %% Kênh phản hồi
-        S2 --> S14["Gửi phản hồi giảng dạy/nền tảng (Kênh riêng biệt)"]
+        S2 --> S15["Gửi phản hồi giảng dạy/nền tảng (Kênh riêng biệt)"]
     end
 
     subgraph Boundaries ["Ranh Giới Dữ Liệu & Cách Ly Quyền Riêng Tư"]
@@ -92,7 +97,7 @@ flowchart TD
 
     class A1,A2,A3,A4 admin;
     class I1,I2,I3,I4,I4_Fail,I5,I6,I7,I8,I9 instructor;
-    class S1,S2,S3,S4,S5,S6,S7,S8,S9,S10,S11,S12,S13,S14 student;
+    class S1,S2,S3,S4,S5,S6,S7,S8,S9,S10,S11,S12,S13,S14,S15 student;
     class DB_Shared,DB_Bank,DB_Stats system;
     class DB_Private private;
 ```
@@ -105,16 +110,16 @@ flowchart TD
 - **Đăng nhập & Điều hướng:** Sinh viên đăng nhập bằng email VinUni và mã OTP. Giao diện trang chủ hiển thị danh sách các môn học sinh viên được ghi danh (phân quyền nghiêm ngặt, tuyệt đối không truy cập được môn ngoài danh sách). Sinh viên chọn môn và chọn Module/Bài giảng muốn học.
 - **Tùy chọn 1 — Học tập tương tác đa nhiệm (Split-screen 3-trong-1):**
   - Màn hình tích hợp đồng thời 3 thành phần trên cùng một không gian: **Trình đọc PDF tài liệu (bên trái) + Khung ghi chép cá nhân (ở giữa) + Cửa sổ Chat AI trợ giảng (bên phải)**.
-  - Sinh viên vừa đọc slide/giáo trình, vừa highlight hoặc ghi chép ý chính, vừa hỏi đáp với AI về các khái niệm khó hiểu.
-  - **Hỏi đáp có căn cứ (Grounded Q&A):** AI trả lời dựa trên tài liệu đã duyệt của môn học, đính kèm số trang cụ thể (`[Slide 12, Lecture 03]`). Khi sinh viên bấm vào trích dẫn, trình đọc PDF sẽ tự động nhảy đến đúng trang tài liệu. Nếu tài liệu không chứa thông tin, AI sẽ thông báo trung thực: *"Tài liệu học phần hiện không có đủ thông tin để trả lời câu hỏi này"* 
-  - **Tùy chọn mở rộng Web (Web Expansion):** Cho phép sinh viên tra cứu thêm nguồn ngoài, nhưng hệ thống sẽ gắn nhãn cảnh báo đỏ rõ ràng: `[Nguồn Web - Nằm ngoài tài liệu chính khóa]`.
-- **Tùy chọn 2 — Luyện tập & Khảo thí định hình:**
+  - Sinh viên vừa đọc slide/giáo trình, vừa highlight hoặc ghi chép ý chính, vừa hỏi đáp với AI về các khái niệm khó hiểu mà không cần chuyển qua lại giữa nhiều tab.
+  - **Hỏi đáp có căn cứ (Grounded Q&A):** AI trả lời dựa trên tài liệu đã duyệt của môn học, đính kèm số trang cụ thể (`[Slide 12, Lecture 03]`). Khi sinh viên bấm vào trích dẫn, trình đọc PDF sẽ tự động nhảy đến đúng trang tài liệu. Nếu tài liệu không chứa thông tin, AI sẽ thông báo trung thực: *"Tài liệu học phần hiện không có đủ thông tin để trả lời câu hỏi này"*.
+  - **Tùy chọn mở rộng Web (Web Expansion):** Cho phép sinh viên tra cứu thêm nguồn ngoài khi cần, nhưng hệ thống sẽ gắn nhãn cảnh báo đỏ rõ ràng: `[Nguồn Web - Nằm ngoài tài liệu chính khóa]`.
+- **Tùy chọn 2 — Luyện tập & Đánh giá năng lực (Formative Practice):**
   - **Quiz theo Module:** Làm bài trắc nghiệm (MCQ) hoặc tự luận ngắn từ ngân hàng câu hỏi do giảng viên đã duyệt.
-  - **Quiz Tổng Hợp:** Cho phép sinh viên tự tích chọn 2 hay nhiều module bài giảng bất kỳ (ví dụ: ôn tập giữa kỳ gồm Module 1, 2 và 4) để AI tổng hợp đề thi thử nghiệm tương ứng.
+  - **Quiz Tổng Hợp (Composite Quiz):** Cho phép sinh viên tự tích chọn 2 hay nhiều module bài giảng bất kỳ (ví dụ: ôn tập giữa kỳ gồm Module 1, 2 và 4) để AI tổng hợp đề thi thử nghiệm tương ứng.
   - **Chấm điểm & Phân tích cá nhân hóa:** AI chấm bài ngay lập tức, đưa ra lời giải thích chi tiết có đối chiếu tài liệu. Đồng thời, hệ thống phân tích biểu đồ **Điểm mạnh / Điểm yếu (Strengths & Weaknesses)** của sinh viên và tự động gợi ý các câu hỏi luyện tập bù đắp đúng phần kiến thức còn hổng.
+- **Tùy chọn 3 — Trò chơi học tập (Learning Games):**
+  - Cho phép sinh viên ôn tập kiến thức thông qua những trò chơi, những hình thức giải đố ngắn, giúp ghi nhớ thuật ngữ và khái niệm một cách sinh động, giảm áp lực.
 - **Kênh phản hồi (Feedback Channel):** Gửi phản hồi trực tiếp, ẩn danh về phương pháp giảng dạy hoặc khó khăn kỹ thuật qua một form độc lập gửi thẳng tới Admin CECS và Giảng viên.
-- **Tùy chọn 3 - Game:**
-  - Cho phép sinh viên ôn tập kiến thức thông qua những trò chơi, những hình thức giải đố.
 
 ### 2. Luồng Giảng Viên / Trợ Giảng (Instructor / TA Flow)
 - **Đăng nhập & Quản lý học liệu:** Giảng viên đăng nhập, mở môn học phụ trách. Upload tài liệu (PDF slide bài giảng, giáo trình, đề tài). Theo dõi trạng thái trích xuất (`processing → ready / failed → retry`). Giảng viên bắt buộc phải kiểm tra và bấm **Phê duyệt (Approve)** thì tài liệu mới được đưa vào chỉ mục vector cho sinh viên học. Có thể ẩn (unpublish) hoặc xóa tài liệu bất cứ lúc nào.
@@ -158,10 +163,9 @@ quadrantChart
     title Ma Trận Ưu Tiên Tính Năng (Feature Prioritization)
     x-axis Độ Khó Kỹ Thuật Thấp --> Độ Khó Kỹ Thuật Cao
     y-axis Giá Trị Sư Phạm Thấp --> Giá Trị Sư Phạm Cao
-   
     "Xác thực Email OTP": [0.15, 0.85]
     "Upload PDF & Giảng viên duyệt": [0.25, 0.90]
-    "Grounded RAG Chat có trích dẫn trang": [0., 0.95]
+    "Grounded RAG Chat có trích dẫn trang": [0.35, 0.95]
     "Ghi chú cá nhân bảo mật RLS": [0.30, 0.92]
     "Giao diện Split-screen 3-trong-1": [0.40, 0.88]
     "Quiz theo Module & Quiz tổng hợp": [0.45, 0.85]
@@ -170,8 +174,6 @@ quadrantChart
     "Cơ chế Gamification (Streak/Rank)": [0.30, 0.35]
     "Agent thông báo đẩy tự động (Push)": [0.51, 0.60]
     "Microsoft SSO / Canvas LTI": [0.75, 0.40]
- 
-    
 ```
 
 ### Bảng Phân Định Phạm Vi Chi Tiết:
@@ -225,8 +227,8 @@ flowchart LR
     end
 
     subgraph AIEngine ["Tầng Trí Tuệ Nhân Tạo (AI / RAG Layer)"]
-        LLM["Google Gemini API (1.5 Flash / Pro)\nHoặc OpenAI GPT-4o-mini / GPT-4o"]
-        EMBED["text-embedding-004\n(Tạo vector nhúng ngữ nghĩa)"]
+        LLM["OpenAI API (GPT-4o-mini / GPT-4o)\nClaude Code (Anthropic)"]
+        EMBED["text-embedding-3-small / text-embedding-004\n(Tạo vector nhúng ngữ nghĩa)"]
     end
 
     FE -->|REST API / HTTPS| API
@@ -247,7 +249,7 @@ flowchart LR
 | **Database & Vector** | **PostgreSQL tích hợp extension `pgvector`** | Supabase Database / Neon PostgreSQL | Duy trì một cơ sở dữ liệu duy nhất cho cả quan hệ người dùng, phân quyền môn học và tìm kiếm vector; giảm thiểu độ phức tạp vận hành. Hỗ trợ **Row-Level Security (RLS)** để khóa cứng ghi chú riêng tư. |
 | **Lưu trữ file (Storage)** | **Supabase Storage / S3-compatible Object Storage** | Lưu trữ cục bộ bảo vệ trên VPS / Volume mount | Lưu trữ các file PDF gốc của môn học tách biệt khỏi cơ sở dữ liệu; cấp quyền đọc thông qua pre-signed URL an toàn. |
 | **Xác thực (Auth)** | **Passwordless Email OTP (tên miền `@vinuni.edu.vn`)** | JWT Mock OTP trong môi trường nội bộ | Gửi mã 6 chữ số qua email trường; không phụ thuộc vào thủ tục phê duyệt phức tạp của Microsoft Azure AD SSO, bảo đảm triển khai nhanh cho pilot. |
-| **AI & Retrieval** | **Google Gemini API (1.5 Flash / Flash-Lite) + `text-embedding-004`** | OpenAI GPT-4o-mini qua API cá nhân / Azure OpenAI | Tốc độ phản hồi cực nhanh (<1.5s), context window lớn, chi phí siêu rẻ phù hợp ngân sách sinh viên; model embedding hỗ trợ phân đoạn tài liệu tiếng Anh/Việt chuẩn xác. |
+| **AI & Retrieval** | **OpenAI API (GPT-4o-mini / GPT-4o) + Claude Code** | Azure OpenAI / Endpoint tương thích OpenAI | Tốc độ phản hồi nhanh (<2s), năng lực suy luận sư phạm xuất sắc để đưa ra gợi ý Socratic; chi phí thấp ở quy mô pilot. |
 | **Hosting & CI/CD** | **Frontend trên Vercel + Backend trên Railway / VPS Docker + GitHub Actions** | Docker Compose toàn bộ trên 1 máy chủ VPS | Tự động hóa kiểm thử (CI) trên GitHub Actions mỗi khi tạo PR; Vercel và Railway cho phép triển khai môi trường Staging trong vòng vài phút mà không tốn công cấu hình server. |
 
 ---
@@ -263,9 +265,8 @@ Toàn bộ dự án tuân thủ nghiêm ngặt tiến độ:
 
 ## 4.1 Bảng Phân Công Tính Năng Cốt Lõi (Feature Ownership Table)
 
-| Tính năng cốt lõi | Người phụ trách chính (Owner) | Người phối hợp & Review (Reviewer) | Đầu ra kiểm chứng (Expected Demo) | Phụ thuộc (Dependencies) | Hạn hoàn thành |
+| Tính năng cốt lõi | Người phụ trách chính (Owner) | Người phối hợp (Reviewer) | Đầu ra kiểm chứng (Expected Demo) | Phụ thuộc (Dependencies) | Hạn hoàn thành |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-
 
 ---
 
@@ -275,24 +276,27 @@ Mục tiêu tối thượng của Ngày 2 là **kết nối thành công một l
 
 ```
 Kịch bản thử nghiệm tích hợp Ngày 2 (Minimum Integrated Scenario):
-Admin gán Giảng viên A và Sinh viên A vào Môn A, Sinh viên B vào Môn B.
-Môn A có 1 tài liệu đã duyệt và 1 tài liệu nháp.
-Sinh viên A mở tài liệu đã duyệt của Môn A -> Hỏi AI -> Nhận câu trả lời kèm trích dẫn số trang hợp lệ -> Tạo và lưu một Ghi chú cá nhân.
-Sinh viên A làm quiz và nhận thông báo kết quả kèm phân tích năng lực, hỏi về Quiz đó.
+1. Admin gán Giảng viên A và Sinh viên A vào Môn A, Sinh viên B vào Môn B.
+2. Môn A có 1 tài liệu đã duyệt và 1 tài liệu nháp.
+3. Sinh viên A mở tài liệu đã duyệt của Môn A -> Hỏi AI -> Nhận câu trả lời kèm trích dẫn số trang hợp lệ -> Tạo và lưu một Ghi chú cá nhân.
+4. Sinh viên A làm quiz và nhận thông báo kết quả kèm phân tích năng lực, hỏi về Quiz đó.
+5. Hệ thống kiểm chứng xác nhận:
+   - Sinh viên A truy cập Môn B -> BỊ TỪ CHỐI (Access Denied).
+   - Sinh viên B, Giảng viên A và Admin cố tình đọc Ghi chú của Sinh viên A -> BỊ TỪ CHỐI Ở TẦNG DATABASE (RLS Denied).
 ```
 
 ## 5.1 Phân Chia 3 Cặp Lập Trình (Three Pairs)
 
-### Cặp 1: Giao Diện & Trải Nghiệm Người Dùng (Experience & Workflows)
-- **Thành viên:** **Công Ngọc (`congngoc308`) + Nguyễn Thanh Tùng (`Tung205`) +**
+### Cặp 1: Giao Diện & Quy Trình (Workflow + Frontend)
+- **Thành viên:** **Công Ngọc (`congngoc308`) + Nguyễn Thanh Tùng (`Tung205`)**
 - **Nhiệm vụ Ngày 2:**
   - Thiết lập dự án Frontend (Next.js / Vite + Tailwind CSS + shadcn/ui).
-  - Xây dựng màn hình học tập của sinh viên/giảng viên/adminadmin.
+  - Xây dựng màn hình học tập của 3 vai trò: Sinh viên (Workspace 3-trong-1), Giảng viên (quản lý học liệu) và Admin (tổng quan môn học).
   - Xử lý các trạng thái: Đang tải (Loading), Lỗi truy vấn (Error), và Bị từ chối quyền truy cập (Access Denied).
-  - Soạn thảo kịch bản kiểm thử trải nghiệm người dùng và chuẩn bị bộ câu hỏi test mẫu cho luồng sinh viên/giảng viên/admin.
+  - Soạn thảo kịch bản kiểm thử trải nghiệm người dùng và chuẩn bị bộ câu hỏi test mẫu cho các luồng.
 
 ### Cặp 2: Nền Tảng, Cơ Sở Dữ Liệu & Phân Quyền (Platform & Access)
-- **Thành viên:** **Đỗ Quang Vinh (`aetrna300bpm`)  + Trần Vân Anh (`tranvananhanhanh`)****
+- **Thành viên:** **Đỗ Quang Vinh (`aetrna300bpm`) + Trần Vân Anh (`tranvananhanhanh`)**
 - **Nhiệm vụ Ngày 2:**
   - Định nghĩa thống nhất bản quy ước dữ liệu dùng chung (Shared Contracts): quy tắc đặt ID (`user_id`, `course_id`, `material_id`), máy trạng thái tài liệu (`uploading → processing → ready → approved → unpublished`).
   - Viết script tạo dữ liệu mẫu (Seed Fixtures) cho kịch bản Day 2 (Admin, Giảng viên A, Sinh viên A, Sinh viên B, Môn A, Môn B).
@@ -303,8 +307,8 @@ Sinh viên A làm quiz và nhận thông báo kết quả kèm phân tích năng
 - **Thành viên:** **Tạ Thị Nga (`ngatt-17`) + Tín Nguyễn (`TinNguyenn`)**
 - **Nhiệm vụ Ngày 2:**
   - Xây dựng pipeline đọc file PDF mẫu, băm đoạn văn bản (chunking) kèm siêu dữ liệu số trang (`page_number`).
-  - Tạo vector embedding (`text-embedding-004`) và lưu trữ vào PostgreSQL extension `pgvector`.
-  - Viết endpoint `POST /api/chat` kết nối Gemini API, áp dụng System Prompt "Tutor, Not Solver": trả về câu trả lời kèm trích dẫn `[Tên file, Trang X]` hoặc câu từ chối khi tài liệu không có thông tin.
+  - Tạo vector embedding (`text-embedding-3-small` / `text-embedding-004`) và lưu trữ vào PostgreSQL extension `pgvector`.
+  - Viết endpoint `POST /api/chat` kết nối OpenAI API (GPT-4o-mini), áp dụng System Prompt "Tutor, Not Solver": trả về câu trả lời kèm trích dẫn `[Tên file, Trang X]` hoặc câu từ chối khi tài liệu không có thông tin.
   - Đảm bảo câu lệnh truy vấn RAG có điều kiện lọc bắt buộc: `WHERE course_id = :current_course AND status = 'approved'`.
 
 ---
@@ -315,13 +319,15 @@ Sinh viên A làm quiz và nhận thông báo kết quả kèm phân tích năng
 
 | Vấn đề cần quyết định | Các phương án xem xét | Đề xuất lựa chọn của nhóm | Hạn chót cần chốt |
 | :--- | :--- | :--- | :--- |
-| **1. Quota & Ngân sách API AI** | Phương án A: Dùng OpenAI Key và Claude Code | **Chọn Phương án A (OpenAI API) và Claude Code** để tự chủ tiến độ phát triển ngay từ Day 2. | **16/09/2026** (12:00) |
-| **2. Phương thức gửi Email OTP thật** | Phương án A: Dùng dịch vụ Resend API gửi mã 6 số về `@vinuni.edu.vn`.| **Chọn Phương án A** (Resend miễn phí 3,000 email/tháng, đủ cho toàn bộ pilot). | **17/09/2026** |
+| **1. Quota & Ngân sách API AI** | Phương án A: Dùng OpenAI Key và Claude Code.<br>Phương án B: Dùng Azure OpenAI của VinUni. | **Chọn Phương án A (OpenAI API + Claude Code)** để tự chủ tiến độ phát triển ngay từ Day 2. | **16/09/2026** (12:00) |
+| **2. Phương thức gửi Email OTP thật** | Phương án A: Dùng dịch vụ Resend API gửi mã 6 số về `@vinuni.edu.vn`.<br>Phương án B: Dùng SMTP nội bộ VinUni hoặc Mock OTP trong tuần 1. | **Chọn Phương án A (Resend API)** (gói miễn phí 3,000 email/tháng, đủ cho toàn bộ pilot). | **17/09/2026** |
 | **3. Môn học và Tài liệu Pilot thực tế** | Cần 1–4 môn học thực tế thuộc CECS để lấy slide bài giảng và đề thi làm dữ liệu kiểm thử. | Xin phê duyệt từ Mentor cung cấp 1 bộ slide bài giảng chuẩn (ví dụ: môn Cấu trúc dữ liệu & Giải thuật hoặc Lập trình Python). | **18/09/2026** |
 
 ---
 
 # 7. Bảng Tổng Hợp Đóng Góp Của Từng Thành Viên (Contributions)
 
+| Thành viên | Vai trò chính | Đóng góp cốt lõi vào kế hoạch chung |
+| :--- | :--- | :--- |
 
-
+---

@@ -227,8 +227,8 @@ flowchart LR
     end
 
     subgraph AIEngine ["AI & Retrieval Layer"]
-        LLM["OpenAI API (GPT-4o / GPT-4o-mini)\nClaude Code / Gemini 1.5 Flash"]
-        EMBED["text-embedding-004\n(Semantic Vector Embeddings)"]
+        LLM["OpenAI API (GPT-4o-mini / GPT-4o)\nClaude Code (Anthropic)"]
+        EMBED["text-embedding-3-small / text-embedding-004\n(Semantic Vector Embeddings)"]
     end
 
     FE -->|REST API / HTTPS| API
@@ -249,7 +249,7 @@ flowchart LR
 | **Database & Vectors** | **PostgreSQL with `pgvector`** | Supabase Database / Neon PostgreSQL | Single unified database for relational data (users, courses, enrollments) and vector similarity search. Simplifies operations and enables **Row-Level Security (RLS)** for private notes. |
 | **File Storage** | **Supabase Storage / S3-Compatible Object Store** | Protected Local Disk / Docker Volume | Keeps large PDF files separate from the database. Files are served securely via expiring pre-signed URLs. |
 | **Authentication** | **Passwordless Email OTP (`@vinuni.edu.vn`)** | Mock OTP in local development | Sends 6-digit codes via email. Fast, secure, and avoids long waiting times for Microsoft Azure AD admin approvals during the pilot. |
-| **AI Models** | **OpenAI API (GPT-4o-mini / GPT-4o) + Claude Code / Gemini** | Gemini 1.5 Flash + `text-embedding-004` | Fast response times (<2s), high reasoning quality for educational hints, and cost-effective embedding models for bilingual English/Vietnamese content. |
+| **AI Models** | **OpenAI API (GPT-4o-mini / GPT-4o) + Claude Code** | Azure OpenAI / OpenAI-compatible endpoint | Fast response times (<2s), high reasoning quality for Socratic educational hints, and cost-effective at pilot scale. |
 | **Hosting & CI/CD** | **Frontend on Vercel + Backend on Railway/VPS Docker + GitHub Actions** | Docker Compose on a single Linux VPS | Automated testing on every pull request. Vercel and Railway enable zero-downtime staging deployments in minutes. |
 
 ---
@@ -307,8 +307,8 @@ Day 2 Minimum Integrated Scenario:
 - **Members:** **Ta Thi Nga (`ngatt-17`) + Tin Nguyen (`TinNguyenn`)**
 - **Day 2 Deliverables:**
   - Build the PDF ingestion script: extract text, chunk content, and preserve page-number metadata (`page_number`).
-  - Generate semantic vector embeddings (`text-embedding-004`) and store them in PostgreSQL via `pgvector`.
-  - Implement the `POST /api/chat` endpoint using the Socratic "Tutor, Not Solver" system prompt: returns grounded answers with citations `[Filename, Page X]` or an honest refusal when evidence is lacking.
+  - Generate semantic vector embeddings (`text-embedding-3-small` / `text-embedding-004`) and store them in PostgreSQL via `pgvector`.
+  - Implement the `POST /api/chat` endpoint using the OpenAI API (GPT-4o-mini) and the Socratic "Tutor, Not Solver" system prompt: returns grounded answers with citations `[Filename, Page X]` or an honest refusal when evidence is lacking.
   - Enforce mandatory query filtering: `WHERE course_id = :current_course AND status = 'approved'`.
 
 ---
@@ -332,5 +332,3 @@ This joint delivery plan synthesizes individual research, technical discussions,
 | Member | Primary Assigned Roles | Core Contributions to Joint Plan |
 | :--- | :--- | :--- |
 
-
----
