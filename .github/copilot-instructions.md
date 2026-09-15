@@ -2,7 +2,7 @@
 
 This repository is the shared workspace for the CECS AI Learning Hub product and team documents. Review pull requests against the product goal: launch a credible pilot/showcase on 5 October 2026 with course-grounded AI answers, private student study space, reviewed practice generation, and instructor/admin insight flows.
 
-Use direct, inclusive team language. Prefer "member", "members", "you", "we", and "us". Avoid "intern" or "interns" in team-facing feedback unless quoting a historical filename or private note.
+Use direct, inclusive team language. Prefer "member", "members", "you", "we", and "us". 
 
 The project treats privacy as a core requirement. Student private notes, annotations, and self-made questions belong only to the owning student. They must not enter shared retrieval, ordinary logs, aggregate dashboards, exports, instructor/admin views, or peer access. Course materials, submitted feedback, dashboard insights, and private notes are different data categories and should not be blurred.
 
