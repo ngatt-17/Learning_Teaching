@@ -35,6 +35,16 @@ app.include_router(note_router)
 app.include_router(score_router)
 app.include_router(feedback_router)
 
+@app.get("/", tags=["Root"])
+def root():
+    return {
+        "message": "Welcome to CECS AI Learning Hub — Platform API (Day 2)",
+        "swagger_docs": "http://localhost:8000/docs",
+        "redoc": "http://localhost:8000/redoc",
+        "health": "http://localhost:8000/health",
+        "status": "online"
+    }
+
 @app.get("/health", tags=["Health"])
 def health_check():
     return {
