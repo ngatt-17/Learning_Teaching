@@ -17,11 +17,14 @@ Mỗi câu hỏi đều có:
 """
 from __future__ import annotations
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import TypedDict, Literal, Any, Union
 
 from openai import OpenAI
+
+logger = logging.getLogger(__name__)
 
 from config import XKIRO_API_KEY, XKIRO_BASE_URL, DEFAULT_MODEL, MAX_QUIZ_COUNT
 from fixtures.sample_material import get_material
@@ -192,34 +195,58 @@ def _normalize_questions(
                 "evidence_snippet": "",
             }
 
+        # Validate len(options) == 4 cho single_choice và multiple_choice
+        if q_type in ("single_choice", "multiple_choice", "mcq"):
+            if not isinstance(options, list):
+                options = []
+            options = [str(opt).strip() for opt in options if str(opt).strip()]
+            if len(options) > 4:
+                logger.warning("Question %s has %d options (>4). Truncating to 4.", q_id, len(options))
+                options = options[:4]
+            elif len(options) < 4:
+                logger.warning("Question %s has %d options (<4). Padding default fallbacks.", q_id, len(options))
+                fallbacks = ["None of the above", "All of the above", "Cannot be determined", "Not applicable"]
+                for fb in fallbacks:
+                    if len(options) == 4:
+                        break
+                    if fb not in options:
+                        options.append(fb)
+                while len(options) < 4:
+                    options.append(f"Option {chr(65 + len(options))}")
+
+        elif q_type in ("short_answer", "short"):
+            options = []
+
         # Correct answer & answer string handling
         correct_answer = item.get("correct_answer")
         answer_str = item.get("answer")
 
-        if q_type == "single_choice":
+        if q_type in ("single_choice", "mcq"):
             if correct_answer is None and answer_str is not None:
-                # Nếu LLM trả về answer chuỗi thay vì index
                 if answer_str in options:
                     correct_answer = options.index(answer_str)
                 else:
                     correct_answer = 0
             elif isinstance(correct_answer, int) and 0 <= correct_answer < len(options):
-                answer_str = options[correct_answer]
+                pass
             else:
                 try:
                     correct_answer = int(correct_answer)
-                    answer_str = options[correct_answer] if 0 <= correct_answer < len(options) else (options[0] if options else "")
+                    if not (0 <= correct_answer < len(options)):
+                        correct_answer = 0
                 except (ValueError, TypeError):
                     correct_answer = 0
-                    answer_str = options[0] if options else ""
+            answer_str = options[correct_answer]
 
         elif q_type == "multiple_choice":
-            if not isinstance(correct_answer, list):
+            if isinstance(correct_answer, list):
+                valid_indices = [i for i in correct_answer if isinstance(i, int) and 0 <= i < len(options)]
+                correct_answer = valid_indices if valid_indices else [0]
+            else:
                 correct_answer = [0]
-            if not answer_str:
-                answer_str = ", ".join(options[i] for i in correct_answer if isinstance(i, int) and 0 <= i < len(options))
+            answer_str = ", ".join(options[i] for i in correct_answer)
 
-        elif q_type == "short_answer":
+        elif q_type in ("short_answer", "short"):
             if correct_answer is None:
                 correct_answer = answer_str or ""
             if not answer_str:
@@ -250,6 +277,7 @@ def _call_llm_for_quiz(
     target_qtype: str = "",
 ) -> list[Question]:
     """Gọi LLM qua xkiro (hỗ trợ DeepSeek) và parse kết quả JSON."""
+    raw = ""
     try:
         completion = _client.chat.completions.create(
             model=DEFAULT_MODEL,
@@ -261,15 +289,40 @@ def _call_llm_for_quiz(
             temperature=0.4,
         )
         raw = completion.choices[0].message.content or "[]"
-        # Bóc tách markdown json nếu có
-        raw = raw.strip()
-        if "```json" in raw:
-            raw = raw.split("```json", 1)[1].split("```", 1)[0]
-        elif "```" in raw:
-            raw = raw.split("```", 1)[1].split("```", 1)[0]
-        raw = raw.strip()
+    except Exception as e:
+        logger.error(
+            "LLM API call failed (model=%s, error_type=%s): %s",
+            DEFAULT_MODEL,
+            type(e).__name__,
+            str(e),
+            exc_info=True,
+        )
+        return [
+            {
+                "id": "q1",
+                "type": "single_choice",
+                "topic": "API Error",
+                "question": f"[Quiz generation failed — API call error: {type(e).__name__}]",
+                "options": ["Retry", "Check Connection", "Check API Key", "Contact Admin"],
+                "correct_answer": 0,
+                "answer": "Retry",
+                "keywords": [],
+                "explanation": f"API error from {DEFAULT_MODEL}: {str(e)}",
+                "citation": {"source_file": default_source, "page": 1, "evidence_snippet": "API Error fallback"},
+                "source_page": 1,
+            }
+        ]
 
-        data = json.loads(raw)
+    try:
+        # Bóc tách markdown json nếu có
+        cleaned_raw = raw.strip()
+        if "```json" in cleaned_raw:
+            cleaned_raw = cleaned_raw.split("```json", 1)[1].split("```", 1)[0]
+        elif "```" in cleaned_raw:
+            cleaned_raw = cleaned_raw.split("```", 1)[1].split("```", 1)[0]
+        cleaned_raw = cleaned_raw.strip()
+
+        data = json.loads(cleaned_raw)
         if isinstance(data, dict) and "questions" in data:
             data = data["questions"]
         if not isinstance(data, list):
@@ -277,19 +330,45 @@ def _call_llm_for_quiz(
 
         return _normalize_questions(data, default_source=default_source, target_qtype=target_qtype)
 
-    except Exception as e:
-        # Fallback an toàn nếu LLM gặp lỗi cú pháp
+    except (json.JSONDecodeError, TypeError, KeyError) as e:
+        logger.error(
+            "Failed to parse LLM JSON response (error=%s). Raw output was:\n%s",
+            str(e),
+            raw,
+            exc_info=True,
+        )
         return [
             {
                 "id": "q1",
                 "type": "single_choice",
-                "topic": "Fallback",
-                "question": f"[Quiz generation failed: {str(e)}]",
-                "options": ["Retry", "Check Connection", "Check API Key", "Contact Admin"],
+                "topic": "Parse Error",
+                "question": "[Quiz generation failed — LLM output could not be parsed as valid JSON]",
+                "options": ["Retry", "Check JSON Format", "Check Output", "Contact Admin"],
                 "correct_answer": 0,
                 "answer": "Retry",
                 "keywords": [],
-                "explanation": f"Model: {DEFAULT_MODEL}, Error: {str(e)}",
+                "explanation": f"JSON parsing failed: {str(e)}",
+                "citation": {"source_file": default_source, "page": 1, "evidence_snippet": "Parse Error fallback"},
+                "source_page": 1,
+            }
+        ]
+    except Exception as e:
+        logger.error(
+            "Unexpected error in _call_llm_for_quiz: %s",
+            str(e),
+            exc_info=True,
+        )
+        return [
+            {
+                "id": "q1",
+                "type": "single_choice",
+                "topic": "Unexpected Error",
+                "question": f"[Quiz generation failed — unexpected error: {str(e)}]",
+                "options": ["Retry", "Check System", "Check Logs", "Contact Admin"],
+                "correct_answer": 0,
+                "answer": "Retry",
+                "keywords": [],
+                "explanation": str(e),
                 "citation": {"source_file": default_source, "page": 1, "evidence_snippet": "Error fallback"},
                 "source_page": 1,
             }

@@ -238,9 +238,22 @@ def test_T08_genquiz_contract_and_citations():
             "source_file": "Lecture02_Pointers.pdf",
             "lesson_id": "c-pointers-02",
         },
+        headers=INSTRUCTOR,
     )
     assert resp.status_code == 200, resp.text
     data = resp.json()
+
+    # Kiểm tra student gọi vào endpoint này phải bị 403
+    resp_student = client.post(
+        "/api/ai/gen-quiz",
+        json={
+            "lesson_content": content,
+            "topic": "Con trỏ & Bộ nhớ C",
+            "num_questions": 3,
+        },
+        headers=STUDENT_A,
+    )
+    assert resp_student.status_code == 403, "Student không được phép gọi endpoint gen-quiz này"
 
     assert data["lesson_id"] == "c-pointers-02"
     assert "questions" in data

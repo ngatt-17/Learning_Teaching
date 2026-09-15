@@ -210,12 +210,23 @@ def gen_from_note(
 
 # ── API Contract Endpoint cho Team 1 & Team 2 ──────────────────────────────
 @contract_router.post("/gen-quiz")
-def api_gen_quiz_contract(body: GenQuizStandardRequest):
+def api_gen_quiz_contract(
+    body: GenQuizStandardRequest,
+    current_user: MockUser = Depends(get_current_user),
+):
     """
     Endpoint chuẩn theo hợp đồng API Team 3 (AI & Quality) với Team 1 & Team 2:
     Nhận nội dung bài học -> Sinh đúng 3 dạng (single_choice, multiple_choice, short_answer)
     kèm trích dẫn số trang và lời giải thích.
+
+    Phân quyền: Chỉ giảng viên, TA hoặc admin mới được sinh đề thi từ học liệu môn học.
     """
+    if current_user.role not in ("instructor", "ta", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only instructors, TAs, or admins can generate quizzes from course content.",
+        )
+
     result = qg.gen_quiz_standard(
         lesson_content=body.lesson_content,
         topic=body.topic,
