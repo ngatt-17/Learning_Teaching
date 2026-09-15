@@ -1,8 +1,11 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from auth import (
     OTPRequest, OTPVerify, TokenResponse, UserPayload,
-    generate_otp, verify_otp_code, create_access_token, get_current_user
+    generate_otp, deliver_otp, otp_cooldown_remaining,
+    verify_otp_code, create_access_token, get_current_user,
+    ALLOW_DEV_MASTER_OTP,
 )
+from mailer import EMAIL_PROVIDER, OTP_TTL_MINUTES
 from database import get_db
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -26,12 +29,29 @@ def request_otp(req: OTPRequest):
                 detail="User account not found. Please contact your CECS administrator."
             )
     
+    cooldown = otp_cooldown_remaining(email)
+    if cooldown > 0:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"A code was just sent. Please wait {cooldown}s before requesting another."
+        )
+
     code = generate_otp(email)
-    return {
+    delivery = deliver_otp(email, code)
+
+    response = {
         "status": "success",
         "message": f"Verification code sent to {email}",
-        "dev_hint": "Dev master OTP is 000000"
+        "email_provider": delivery["provider"],
+        "delivered": delivery["delivered"],
+        "delivery_detail": delivery["detail"],
+        "expires_in_minutes": OTP_TTL_MINUTES,
     }
+    if EMAIL_PROVIDER == "console":
+        # Development only: the mailbox is the server log, so expose the code to the caller.
+        response["dev_otp"] = code
+        response["dev_hint"] = "Dev master OTP is 000000" if ALLOW_DEV_MASTER_OTP else "Dev master OTP is disabled"
+    return response
 
 @router.post("/verify-otp", response_model=TokenResponse)
 def verify_otp(req: OTPVerify):

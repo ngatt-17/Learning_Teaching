@@ -9,15 +9,24 @@ from fastapi import HTTPException, Security, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 
+from mailer import send_otp_email, EMAIL_PROVIDER, OTP_TTL_MINUTES
+
 load_dotenv()
 
 JWT_SECRET = os.getenv("JWT_SECRET", "cecs-ai-hub-super-secret-dev-jwt-key-2026-day02")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
+# Development convenience: master code 000000 always verifies.
+# MUST be set to false in staging/production (see .env.example).
+ALLOW_DEV_MASTER_OTP = os.getenv("ALLOW_DEV_MASTER_OTP", "true").lower() == "true"
+# Resend throttle, applied only when real email is being sent.
+OTP_RESEND_COOLDOWN_SECONDS = int(os.getenv("OTP_RESEND_COOLDOWN_SECONDS", "60"))
+OTP_MAX_ATTEMPTS = int(os.getenv("OTP_MAX_ATTEMPTS", "5"))
+
 security = HTTPBearer()
 
-# In-memory OTP store: email -> {"code": "123456", "expires_at": timestamp}
+# In-memory OTP store: email -> {"code", "expires_at", "sent_at", "attempts"}
 otp_store = {}
 
 class UserPayload(BaseModel):
@@ -39,33 +48,55 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user: UserPayload
 
+def otp_cooldown_remaining(email: str) -> int:
+    """Seconds left before a new code may be requested. Always 0 in console mode."""
+    if EMAIL_PROVIDER == "console" or OTP_RESEND_COOLDOWN_SECONDS <= 0:
+        return 0
+    record = otp_store.get(email.lower())
+    if not record:
+        return 0
+    elapsed = time.time() - record.get("sent_at", 0)
+    return max(0, int(OTP_RESEND_COOLDOWN_SECONDS - elapsed))
+
+
 def generate_otp(email: str) -> str:
-    """Generate 6-digit OTP code and store with 10-minute expiry."""
+    """Generate a 6-digit OTP code and store it with its expiry."""
     code = f"{random.randint(100000, 999999)}"
-    # For automated tests, email containing 'test' or standard seed users also accept '000000'
+    now = time.time()
     otp_store[email.lower()] = {
         "code": code,
-        "expires_at": time.time() + 600  # 10 minutes
+        "expires_at": now + OTP_TTL_MINUTES * 60,
+        "sent_at": now,
+        "attempts": 0,
     }
-    print(f"[AUTH DEV] OTP for {email}: {code} (Dev master: 000000)")
     return code
 
+
+def deliver_otp(email: str, code: str) -> dict:
+    """Send the code through the configured email provider (console/smtp/sendgrid)."""
+    return send_otp_email(email, code)
+
+
 def verify_otp_code(email: str, otp: str) -> bool:
-    """Verify submitted OTP code against store (or dev fallback)."""
-    # Master dev OTP for quick integration testing
-    if otp == "000000":
+    """Verify a submitted OTP code against the store (or the dev master code)."""
+    if ALLOW_DEV_MASTER_OTP and otp == "000000":
         return True
-    
+
     record = otp_store.get(email.lower())
     if not record:
         return False
     if time.time() > record["expires_at"]:
         del otp_store[email.lower()]
         return False
+    if record["attempts"] >= OTP_MAX_ATTEMPTS:
+        del otp_store[email.lower()]
+        return False
     if record["code"] == otp:
         del otp_store[email.lower()]
         return True
+    record["attempts"] += 1
     return False
+
 
 def create_access_token(user: UserPayload) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
