@@ -81,3 +81,47 @@ def enroll_user(course_id: str, data: EnrollmentCreate):
             "course_id": str(enrollment["course_id"]),
             "role": enrollment["role"]
         }
+
+
+@router.get("/{course_id}/members", dependencies=[Depends(require_role("instructor", "ta", "admin"))])
+def list_course_members(course_id: str, role: Optional[str] = None, current_user: UserPayload = Depends(require_course_access)):
+    """
+    Roster of a course: who is enrolled and with which role.
+    Identity and enrolment only — never notes, chat history or feedback authorship.
+    """
+    with get_db() as cur:
+        if role:
+            cur.execute("""
+                SELECT u.id, u.email, u.name, e.role, e.enrolled_at
+                FROM enrollments e JOIN users u ON u.id = e.user_id
+                WHERE e.course_id = %s AND e.role = %s
+                ORDER BY e.role, u.name;
+            """, (course_id, role))
+        else:
+            cur.execute("""
+                SELECT u.id, u.email, u.name, e.role, e.enrolled_at
+                FROM enrollments e JOIN users u ON u.id = e.user_id
+                WHERE e.course_id = %s
+                ORDER BY e.role, u.name;
+            """, (course_id,))
+        members = cur.fetchall()
+        return [{
+            "id": str(m["id"]),
+            "email": m["email"],
+            "name": m["name"],
+            "role": m["role"],
+            "enrolled_at": str(m["enrolled_at"]) if m.get("enrolled_at") else None,
+        } for m in members]
+
+
+@router.delete("/{course_id}/enroll/{user_id}", dependencies=[Depends(require_role("admin"))], status_code=status.HTTP_204_NO_CONTENT)
+def unenroll_user(course_id: str, user_id: str):
+    """Remove a user from a course (admin assignment management)."""
+    with get_db() as cur:
+        cur.execute(
+            "DELETE FROM enrollments WHERE course_id = %s AND user_id = %s RETURNING id;",
+            (course_id, user_id)
+        )
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Enrollment not found")
+    return None
