@@ -20,35 +20,35 @@
 
 | Khối chức năng | File mã nguồn | Vai trò cốt lõi & Trách nhiệm kỹ thuật |
 |---|---|---|
-| **Hạ tầng & Cấu hình** | [`rag/main.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/main.py) | Khởi tạo FastAPI app, đăng ký toàn bộ routers, CORS, chạy port 8001. |
-| | [`rag/config.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/config.py) | Quản lý đa nhà cung cấp LLM (Gemini, OpenAI, DeepSeek, xKiro), tự động phát hiện API Key & Base URL. |
-| | [`rag/mock_auth.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/mock_auth.py) | Xác thực Bearer Token & phân quyền theo môn học (RBAC: Student, Instructor, TA, Admin). |
-| | [`rag/routes/health_routes.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/routes/health_routes.py) | Endpoint `GET /health` giám sát sức khỏe dịch vụ. |
-| **Khối 1: GenQuiz** | [`rag/quiz_generator.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/quiz_generator.py) | **Trái tim sinh đề 3 dạng:** Prompting ép JSON schema, gọi LLM, chuẩn hóa 4 options, fallback tự động, Draft Store. |
-| | [`rag/routes/quiz_routes.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/routes/quiz_routes.py) | Endpoints tạo đề từ slide (`from-material`), ngân hàng (`from-bank`), ghi chú (`from-note`), duyệt đề (`publish`). |
-| | [`rag/run_quiz_demo.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/run_quiz_demo.py) | Script demo terminal tạo câu hỏi 3 dạng trực tiếp từ file bài giảng. |
-| | [`rag/sample_lecture_cs101.txt`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/sample_lecture_cs101.txt) | File bài giảng mẫu C Programming phục vụ sinh đề và test. |
-| **Khối 2: Chat RAG** | [`rag/chat_rag.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/chat_rag.py) | **Điều phối Two-Stage RAG:** Lấy Top-10 ứng viên $\rightarrow$ Rerank Top-3 $\rightarrow$ Ép Citation Injection cấp câu `[1], [2]`. |
-| | [`rag/retriever.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/retriever.py) | **Hybrid Search Engine:** Kết hợp BM25Okapi bắt từ khóa kỹ thuật + Semantic song ngữ Anh-Việt + RRF Fusion ($k=60$). |
-| | [`rag/reranker.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/reranker.py) | **Two-Stage Reranker (m3_rerank):** Cross-Scoring cặp (query, chunk) loại bỏ hiện tượng Lost in the Middle, chọn Top-3 tinh túy. |
-| | [`rag/grounded_chat.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/grounded_chat.py) | **4 Rào chắn bảo vệ:** Chặn xin giải hộ (Socratic), chặn slide draft, chặn môn khác, chống ảo giác (Anti-Hallucination). |
-| | [`rag/routes/chat_routes.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/routes/chat_routes.py) | Endpoint `POST /courses/{course_id}/chat` kiểm tra quyền ghi danh và trả lời kèm trích dẫn số trang. |
-| | [`rag/fixtures/sample_material.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/fixtures/sample_material.py) | Dữ liệu slide bài giảng mẫu (approved vs draft, hỗ trợ alias `CS101` / `course-a`). |
-| | [`rag/chat_cli.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/chat_cli.py) | Công cụ Terminal tương tác trực tiếp với Chat RAG LLM thật (Gemini). |
-| **Khối 3: Analyst** | [`rag/competency_analyzer.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/competency_analyzer.py) | **Giải thuật phân tích năng lực:** Tính % Mastery theo topic, phân loại Strengths vs Weaknesses, tra cứu `TOPIC_REVIEW_MAP` chỉ đích danh slide ôn tập (2ms, 0 token). |
-| | [`rag/demo_competency.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/demo_competency.py) | Script demo terminal phân tích năng lực sinh viên từ quiz và thắc mắc chat. |
-| **Kiểm thử & Đánh giá**| [`rag/eval_benchmark.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/eval_benchmark.py) | **Bộ đo định lượng RAG (m4_eval):** Benchmark 12 câu hỏi thực tế đo Hit Rate@3 (100%) và MRR (0.95). |
-| | [`rag/tests/test_competency.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/tests/test_competency.py) | 6 bài kiểm thử giải thuật mastery, ranh giới bảo mật `private_notes` và JSON contract. |
-| | [`rag/tests/test_genquiz_contract.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/tests/test_genquiz_contract.py) | 4 bài kiểm thử cấu trúc JSON 3 dạng câu hỏi và dynamic fallback question type. |
-| | [`rag/tests/test_ai_quality.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/tests/test_ai_quality.py) | 8 bài kiểm thử chất lượng RAG, cách ly slide draft, quyền xuất bản và cách ly chéo môn học. |
-| | [`rag/test_rag.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/test_rag.py) | 5 bài kiểm thử unit độc lập cho 4 rào chắn của `grounded_chat.py`. |
+| **Hạ tầng & Cấu hình** | `rag/main.py` | Khởi tạo FastAPI app, đăng ký toàn bộ routers, CORS, chạy port 8001. |
+| | `rag/config.py` | Quản lý đa nhà cung cấp LLM (Gemini, OpenAI, DeepSeek, xKiro), tự động phát hiện API Key & Base URL. |
+| | `rag/mock_auth.py` | Xác thực Bearer Token & phân quyền theo môn học (RBAC: Student, Instructor, TA, Admin). |
+| | `rag/routes/health_routes.py` | Endpoint `GET /health` giám sát sức khỏe dịch vụ. |
+| **Khối 1: GenQuiz** | `rag/quiz_generator.py` | **Trái tim sinh đề 3 dạng:** Prompting ép JSON schema, gọi LLM, chuẩn hóa 4 options, fallback tự động, Draft Store. |
+| | `rag/routes/quiz_routes.py` | Endpoints tạo đề từ slide (`from-material`), ngân hàng (`from-bank`), ghi chú (`from-note`), duyệt đề (`publish`). |
+| | `rag/run_quiz_demo.py` | Script demo terminal tạo câu hỏi 3 dạng trực tiếp từ file bài giảng. |
+| | `rag/sample_lecture_cs101.txt` | File bài giảng mẫu C Programming phục vụ sinh đề và test. |
+| **Khối 2: Chat RAG** | `rag/chat_rag.py` | **Điều phối Two-Stage RAG:** Lấy Top-10 ứng viên $\rightarrow$ Rerank Top-3 $\rightarrow$ Ép Citation Injection cấp câu `[1], [2]`. |
+| | `rag/retriever.py` | **Hybrid Search Engine:** Kết hợp BM25Okapi bắt từ khóa kỹ thuật + Semantic song ngữ Anh-Việt + RRF Fusion ($k=60$). |
+| | `rag/reranker.py` | **Two-Stage Reranker (m3_rerank):** Cross-Scoring cặp (query, chunk) loại bỏ hiện tượng Lost in the Middle, chọn Top-3 tinh túy. |
+| | `rag/grounded_chat.py` | **4 Rào chắn bảo vệ:** Chặn xin giải hộ (Socratic), chặn slide draft, chặn môn khác, chống ảo giác (Anti-Hallucination). |
+| | `rag/routes/chat_routes.py` | Endpoint `POST /courses/{course_id}/chat` kiểm tra quyền ghi danh và trả lời kèm trích dẫn số trang. |
+| | `rag/fixtures/sample_material.py` | Dữ liệu slide bài giảng mẫu (approved vs draft, hỗ trợ alias `CS101` / `course-a`). |
+| | `rag/chat_cli.py` | Công cụ Terminal tương tác trực tiếp với Chat RAG LLM thật (Gemini). |
+| **Khối 3: Analyst** | `rag/competency_analyzer.py` | **Giải thuật phân tích năng lực:** Tính % Mastery theo topic, phân loại Strengths vs Weaknesses, tra cứu `TOPIC_REVIEW_MAP` chỉ đích danh slide ôn tập (2ms, 0 token). |
+| | `rag/demo_competency.py` | Script demo terminal phân tích năng lực sinh viên từ quiz và thắc mắc chat. |
+| **Kiểm thử & Đánh giá**| `rag/eval_benchmark.py` | **Bộ đo định lượng RAG (m4_eval):** Benchmark 12 câu hỏi thực tế đo Hit Rate@3 (100%) và MRR (0.95). |
+| | `rag/tests/test_competency.py` | 6 bài kiểm thử giải thuật mastery, ranh giới bảo mật `private_notes` và JSON contract. |
+| | `rag/tests/test_genquiz_contract.py` | 4 bài kiểm thử cấu trúc JSON 3 dạng câu hỏi và dynamic fallback question type. |
+| | `rag/tests/test_ai_quality.py` | 8 bài kiểm thử chất lượng RAG, cách ly slide draft, quyền xuất bản và cách ly chéo môn học. |
+| | `rag/test_rag.py` | 5 bài kiểm thử unit độc lập cho 4 rào chắn của `grounded_chat.py`. |
 
 ---
 
 # 2. KHỐI 1: GENQUIZ ENGINE (SINH ĐỀ TỰ ĐỘNG 3 DẠNG)
 
 ### 2.1 File đảm nhiệm & Cơ chế vận hành
-* **File trung tâm:** [`rag/quiz_generator.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/quiz_generator.py) kết hợp với [`rag/routes/quiz_routes.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/routes/quiz_routes.py).
+* **File trung tâm:** `rag/quiz_generator.py` kết hợp với `rag/routes/quiz_routes.py`.
 * **Nhiệm vụ:** Đọc hiểu văn bản slide/ngân hàng đề $\rightarrow$ Sử dụng Prompt ép kiểu chặt chẽ $\rightarrow$ Gọi LLM $\rightarrow$ Parse JSON an toàn $\rightarrow$ Chuẩn hóa 4 phương án $\rightarrow$ Lưu vào kho bản nháp (`_DRAFT_STORE`) chờ Giảng viên phê duyệt.
 
 ```mermaid
@@ -158,7 +158,7 @@ Mọi câu hỏi sinh ra bắt buộc tuân thủ 100% định dạng sau:
 # 3. KHỐI 2: GROUNDED CHAT RAG (HYBRID SEARCH, TWO-STAGE RERANK & 4 RÀO CHẮN)
 
 ### 3.1 File đảm nhiệm & Kiến trúc Production RAG (Day 18)
-* **File trung tâm:** [`rag/chat_rag.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/chat_rag.py), [`rag/retriever.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/retriever.py), [`rag/reranker.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/reranker.py), [`rag/grounded_chat.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/grounded_chat.py).
+* **File trung tâm:** `rag/chat_rag.py`, `rag/retriever.py`, `rag/reranker.py`, `rag/grounded_chat.py`.
 * **Quy trình 2 tầng (Two-Stage Pipeline):**
   $$\text{Query} \xrightarrow{\text{PreRAG}} \text{Hybrid Search (BM25 + Semantic + RRF)} \xrightarrow{\text{Top-10 Recall}} \text{Reranker} \xrightarrow{\text{Top-3 Precision}} \text{Citation Injection} \xrightarrow{\text{LLM}} \text{Answer [1][2]}$$
 
@@ -190,7 +190,7 @@ flowchart TD
 ---
 
 ### 3.2 Thuật toán Hybrid Search (BM25Okapi + Semantic + RRF Fusion)
-Trong [`rag/retriever.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/retriever.py), thuật toán tìm kiếm được thiết kế theo đúng Slide 24:
+Trong `rag/retriever.py`, thuật toán tìm kiếm được thiết kế theo đúng Slide 24:
 1. **BM25Okapi (Lexical Search):**
    $$Score_{BM25}(D, Q) = \sum_{q_i \in Q} IDF(q_i) \cdot \frac{f(q_i, D) \cdot (k_1 + 1)}{f(q_i, D) + k_1 \cdot \left(1 - b + b \cdot \frac{|D|}{avgdl}\right)}$$
    với $k_1 = 1.5, b = 0.75$. Đảm bảo các từ khóa syntax (`def`, `int`, `while`, `malloc`) được bắt chính xác 100%.
@@ -202,14 +202,14 @@ Trong [`rag/retriever.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/
 
 ---
 
-### 3.3 Tầng Two-Stage Reranking ([`rag/reranker.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/reranker.py))
+### 3.3 Tầng Two-Stage Reranking (`rag/reranker.py`)
 * **Mục đích (Slide 33):** Lọc thô (bi-encoder/hybrid) lấy nhiều ứng viên (Top-10), sau đó dùng Cross-Encoder chấm điểm lại cặp `(query, chunk)` để chọn **Top-3 chuẩn nhất**.
 * **Giải quyết vấn đề:** Triệt tiêu hoàn toàn hiện tượng *Lost in the Middle* (LLM bị xao nhãng bởi các chunk nhiễu ở giữa context).
 * **Cơ chế thực thi:** Hỗ trợ `Flashrank` (<5ms trên CPU) cùng bộ tính điểm Cross-Alignment Scorer tự động (đo độ phủ từ khóa + khớp cụm bigram liên tiếp).
 
 ---
 
-### 3.4 Kỹ thuật Citation Injection Cấp Câu ([`rag/chat_rag.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/chat_rag.py))
+### 3.4 Kỹ thuật Citation Injection Cấp Câu (`rag/chat_rag.py`)
 * Thay vì chỉ để danh sách trích dẫn chung chung ở cuối câu trả lời, System Prompt được nâng cấp theo chuẩn Slide 39:
   > *"Attribute facts to their source by placing [1], [2], or [3] inline at the end of the sentence matching the respective [Context i]."*
 * **Kết quả thực tế khi sinh viên hỏi:**
@@ -220,7 +220,7 @@ Trong [`rag/retriever.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/
 # 4. KHỐI 3: COMPETENCY ANALYST (PHÂN TÍCH ĐIỂM MẠNH / ĐIỂM YẾU & LỖ HỔNG)
 
 ### 4.1 File đảm nhiệm & Bản chất nghiệp vụ
-* **File trung tâm:** [`rag/competency_analyzer.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/competency_analyzer.py), route API tại [`rag/routes/quiz_routes.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/routes/quiz_routes.py), demo tại [`rag/demo_competency.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/demo_competency.py).
+* **File trung tâm:** `rag/competency_analyzer.py`, route API tại `rag/routes/quiz_routes.py`, demo tại `rag/demo_competency.py`.
 * **Mục tiêu:** Sau khi sinh viên hoàn thành các bài quiz và đặt câu hỏi trên lớp, hệ thống tự động chỉ ra:
   * Sinh viên đã nắm vững chủ đề nào?
   * Sinh viên đang hổng kiến thức ở phần nào?
@@ -430,7 +430,7 @@ Dưới đây là 3 Endpoint cốt lõi của Team 3 (chạy tại port **8001**
 
 ### 6.2 Kết quả đo lường định lượng Benchmark (m4_eval — Slide 42)
 
-Đánh giá thực nghiệm trên **12 câu hỏi thực tế** với script [`rag/eval_benchmark.py`](file:///d:/Dowloads/Vin/CECS/CECS_AI_LearningHub/rag/eval_benchmark.py):
+Đánh giá thực nghiệm trên **12 câu hỏi thực tế** với script `rag/eval_benchmark.py`:
 
 | Chỉ số đo lường (RAGAS Metrics) | Baseline (Top-3 thô) | Production (Hybrid + Two-Stage Rerank) | Mục tiêu Slide Day 18 | Đánh giá |
 |---|:---:|:---:|:---:|:---:|
