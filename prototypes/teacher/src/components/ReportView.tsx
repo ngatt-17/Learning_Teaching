@@ -3,8 +3,6 @@ import {
   ArrowLeft,
   BarChart2,
   Users,
-  AlertTriangle,
-  Clock,
   Sparkles,
   Search,
   Download,
@@ -13,6 +11,8 @@ import {
   TrendingUp,
   AlertCircle,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 interface ReportViewProps {
@@ -52,6 +52,7 @@ export const ReportView: React.FC<ReportViewProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [scoreFilter, setScoreFilter] = useState<'All' | 'High' | 'NeedsHelp'>('All');
   const [selectedStudent, setSelectedStudent] = useState<StudentDetail | null>(null);
+  const [showQuestionAccuracy, setShowQuestionAccuracy] = useState(false);
 
   const questionsAnalysis = [
     { id: 1, text: 'Định nghĩa nào chuẩn xác nhất về Tác tử (Agent) trong AI?', correctRate: 96, bloom: 'Nhận biết', pageCitation: 'Slide 3' },
@@ -328,15 +329,15 @@ export const ReportView: React.FC<ReportViewProps> = ({
       {/* FULL-WIDTH SCROLLABLE CONTAINER (Scrollbar strictly on the far right edge of the screen) */}
       <main className="flex-1 overflow-y-auto w-full">
         <div className="max-w-7xl mx-auto p-6 sm:p-8 space-y-6">
-          {/* KPI OVERVIEW CARDS */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* KPI OVERVIEW CARDS (Giữ 2 thẻ chính: Tỉ lệ hoàn thành & Điểm TB lớp) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-2xs">
               <div className="flex items-center justify-between text-slate-500 text-xs mb-1">
                 <span>Tỉ lệ hoàn thành</span>
                 <Users size={16} className="text-[#1E3A6E]" />
               </div>
               <p className="text-2xl font-extrabold text-[#1E3A6E]">91.8%</p>
-              <p className="text-[11px] text-slate-400 mt-1">68 / 74 sinh viên đã nộp bài</p>
+              <p className="text-[11px] text-slate-400 mt-1">68 sinh viên đã nộp bài</p>
             </div>
 
             <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-2xs">
@@ -346,24 +347,6 @@ export const ReportView: React.FC<ReportViewProps> = ({
               </div>
               <p className="text-2xl font-extrabold text-emerald-600">8.4 / 10</p>
               <p className="text-[11px] text-slate-400 mt-1">Cao nhất: 10 • Thấp nhất: 5.5</p>
-            </div>
-
-            <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-2xs">
-              <div className="flex items-center justify-between text-slate-500 text-xs mb-1">
-                <span>Thời gian làm trung bình</span>
-                <Clock size={16} className="text-slate-600" />
-              </div>
-              <p className="text-2xl font-extrabold text-slate-800">14m 12s</p>
-              <p className="text-[11px] text-slate-400 mt-1">Đề thi 10 câu trắc nghiệm</p>
-            </div>
-
-            <div className="bg-amber-50/70 p-4 sm:p-5 rounded-xl border border-amber-200 shadow-2xs">
-              <div className="flex items-center justify-between text-amber-800 text-xs mb-1 font-semibold">
-                <span>Điểm gây nhầm lẫn</span>
-                <AlertTriangle size={16} className="text-amber-600" />
-              </div>
-              <p className="text-2xl font-extrabold text-amber-700">Câu 4 (42%)</p>
-              <p className="text-[11px] text-amber-800/80 mt-1">Nhầm lẫn Reflex vs Goal Agent</p>
             </div>
           </div>
 
@@ -396,69 +379,91 @@ export const ReportView: React.FC<ReportViewProps> = ({
             </div>
           </div>
 
-          {/* DETAILED QUESTION-BY-QUESTION ACCURACY BREAKDOWN */}
-          <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
-            <div className="p-4 sm:px-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm">
-                  Chi tiết độ chính xác từng câu hỏi trong đề
-                </h3>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Độ khó thực tế đo lường dựa trên 68 lượt nộp bài của sinh viên CECS.
-                </p>
-              </div>
-              <span className="text-xs font-semibold text-slate-600">10 câu hỏi</span>
-            </div>
-
-            <div className="divide-y divide-slate-100">
-              {questionsAnalysis.map((q) => (
-                <div
-                  key={q.id}
-                  className={`p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors ${
-                    q.isWarning ? 'bg-amber-50/40 hover:bg-amber-50/60' : 'hover:bg-slate-50/60'
-                  }`}
-                >
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-800 text-xs">Câu {q.id}.</span>
-                      <span className="text-xs text-slate-700 font-medium">{q.text}</span>
-                    </div>
-
-                    <div className="flex items-center gap-3 text-[11px] text-slate-400">
-                      <span className="bg-slate-100 text-slate-600 px-2 py-0.2 rounded font-medium">
-                        Mức độ: {q.bloom}
-                      </span>
-                      <span>•</span>
-                      <span className="text-blue-600 font-medium">Nguồn: {q.pageCitation}</span>
-                    </div>
-
-                    {q.misconceptionNote && (
-                      <p className="text-[11px] text-amber-800 font-medium mt-1">
-                        ⚠️ {q.misconceptionNote}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="w-48 shrink-0 flex items-center gap-3">
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between text-[11px] font-bold mb-1">
-                        <span className={q.correctRate < 60 ? 'text-amber-700' : 'text-emerald-700'}>
-                          {q.correctRate}% đúng
-                        </span>
-                      </div>
-                      <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                        <div
-                          className={`h-2 rounded-full ${
-                            q.correctRate < 60 ? 'bg-amber-500' : 'bg-emerald-500'
-                          }`}
-                          style={{ width: `${q.correctRate}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
+          {/* DETAILED QUESTION-BY-QUESTION ACCURACY BREAKDOWN (THANH HIDDEN / COLLAPSIBLE) */}
+          <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden transition-all">
+            <button
+              type="button"
+              onClick={() => setShowQuestionAccuracy(!showQuestionAccuracy)}
+              className="w-full p-4 sm:px-6 flex items-center justify-between bg-slate-50/70 hover:bg-slate-100 transition-colors text-left cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-blue-50 text-[#1E3A6E] rounded-lg">
+                  <BarChart2 size={16} />
                 </div>
-              ))}
-            </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-slate-900 text-sm">
+                      Chi tiết độ chính xác từng câu hỏi trong đề
+                    </h3>
+                    <span className="text-[11px] font-semibold bg-slate-200/80 text-slate-700 px-2 py-0.5 rounded-full">
+                      10 câu hỏi
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {showQuestionAccuracy
+                      ? 'Nhấn để thu gọn danh sách'
+                      : 'Nhấn vào thanh này để xem chi tiết độ khó, tỉ lệ làm đúng và nguồn trích dẫn tài liệu'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-slate-600 text-xs font-semibold bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-2xs">
+                <span>{showQuestionAccuracy ? 'Thu gọn' : 'Xem chi tiết'}</span>
+                {showQuestionAccuracy ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+              </div>
+            </button>
+
+            {showQuestionAccuracy && (
+              <div className="divide-y divide-slate-100 border-t border-slate-200 animate-in fade-in duration-200">
+                {questionsAnalysis.map((q) => (
+                  <div
+                    key={q.id}
+                    className={`p-4 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors ${
+                      q.isWarning ? 'bg-amber-50/40 hover:bg-amber-50/60' : 'hover:bg-slate-50/60'
+                    }`}
+                  >
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-800 text-xs">Câu {q.id}.</span>
+                        <span className="text-xs text-slate-700 font-medium">{q.text}</span>
+                      </div>
+
+                      <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                        <span className="bg-slate-100 text-slate-600 px-2 py-0.2 rounded font-medium">
+                          Mức độ: {q.bloom}
+                        </span>
+                        <span>•</span>
+                        <span className="text-blue-600 font-medium">Nguồn: {q.pageCitation}</span>
+                      </div>
+
+                      {q.misconceptionNote && (
+                        <p className="text-[11px] text-amber-800 font-medium mt-1">
+                          ⚠️ {q.misconceptionNote}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="w-48 shrink-0 flex items-center gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between text-[11px] font-bold mb-1">
+                          <span className={q.correctRate < 60 ? 'text-amber-700' : 'text-emerald-700'}>
+                            {q.correctRate}% đúng
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                          <div
+                            className={`h-2 rounded-full ${
+                              q.correctRate < 60 ? 'bg-amber-500' : 'bg-emerald-500'
+                            }`}
+                            style={{ width: `${q.correctRate}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* STUDENT ROSTER WITH INDIVIDUAL PERFORMANCE DRILL-DOWN (Split Layout or Drawer) */}

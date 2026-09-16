@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react';
 import {
   Upload,
   FileText,
-  Plus,
   Trash2,
   Sparkles,
   X,
@@ -57,16 +56,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   const [autoPublish, setAutoPublish] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
 
-  // Files currently queued for upload
-  const [filesToUpload, setFilesToUpload] = useState<FileDraft[]>([
-    {
-      id: 'f1',
-      fileName: 'AI(3)_Part1_Heuristics.pdf',
-      title: 'Bài giảng lý thuyết Heuristic & Giải thuật A*',
-      fileSize: '4.2 MB',
-      pageCount: 32,
-    },
-  ]);
+  // Files currently queued for upload (mặc định ban đầu là 0)
+  const [filesToUpload, setFilesToUpload] = useState<FileDraft[]>([]);
 
   // Upload progress state
   const [isUploading, setIsUploading] = useState(false);
@@ -133,11 +124,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   };
 
   const handleRemoveFile = (id: string) => {
-    if (filesToUpload.length <= 1) {
-      alert('Vui lòng giữ lại ít nhất 1 tài liệu để tải lên.');
-      return;
-    }
-    setFilesToUpload(filesToUpload.filter((f) => f.id !== id));
+    setFilesToUpload((prev) => prev.filter((f) => f.id !== id));
   };
 
   const handleUpdateFileTitle = (id: string, title: string) => {
@@ -387,28 +374,27 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
             {/* LIST OF FILES TO UPLOAD WITH CORRESPONDING TITLES */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="block font-bold text-slate-800 text-xs">
-                    2. Danh sách slide đã chọn ({filesToUpload.length} tài liệu)
-                  </label>
-                  <p className="text-[11px] text-slate-500">
-                    Vui lòng kiểm tra hoặc chỉnh sửa Tên tiêu đề hiển thị tương ứng cho từng slide.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-2.5 py-1.5 bg-blue-50 text-[#1E3A6E] hover:bg-blue-100 rounded-lg font-semibold transition-colors flex items-center gap-1 cursor-pointer border border-blue-200 text-xs"
-                >
-                  <Plus size={13} />
-                  <span>Chọn thêm file từ máy</span>
-                </button>
+              <div>
+                <label className="block font-bold text-slate-800 text-xs">
+                  2. Danh sách slide đã chọn ({filesToUpload.length} tài liệu)
+                </label>
+                <p className="text-[11px] text-slate-500">
+                  {filesToUpload.length === 0
+                    ? 'Chưa có slide nào được chọn. Hãy chọn tệp từ máy ở khung tải lên phía trên.'
+                    : 'Vui lòng kiểm tra hoặc chỉnh sửa Tên tiêu đề hiển thị tương ứng cho từng slide.'}
+                </p>
               </div>
 
-              <div className="space-y-3">
-                {filesToUpload.map((file) => (
+              {filesToUpload.length === 0 ? (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-5 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 text-center text-slate-400 text-xs cursor-pointer hover:bg-blue-50/30 hover:border-[#1E3A6E] transition-colors"
+                >
+                  Chưa có tài liệu nào trong danh sách. Hãy nhấn tải lên ở trên.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filesToUpload.map((file) => (
                   <div
                     key={file.id}
                     className="bg-slate-50/80 border border-slate-200 rounded-xl p-3.5 space-y-2.5 relative"
@@ -456,7 +442,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                   </div>
                 ))}
               </div>
-            </div>
+            )}
+          </div>
 
             {/* SETTINGS: AUTO PUBLISH */}
             <div className="pt-2">
@@ -484,7 +471,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             </button>
             <button
               onClick={handleStartUpload}
-              className="px-4 py-2 bg-[#1E3A6E] hover:bg-[#14274E] text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
+              disabled={filesToUpload.length === 0}
+              className="px-4 py-2 bg-[#1E3A6E] hover:bg-[#14274E] text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-2 cursor-pointer shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Upload size={15} />
               <span>Tải lên {filesToUpload.length} tệp & Bắt đầu RAG</span>

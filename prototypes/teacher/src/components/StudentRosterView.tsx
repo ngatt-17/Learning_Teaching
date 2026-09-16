@@ -58,7 +58,7 @@ interface StudentRosterViewProps {
 
 export const StudentRosterView: React.FC<StudentRosterViewProps> = ({
   courseCode: _courseCode,
-  enrolledStudentsCount,
+  enrolledStudentsCount: _enrolledStudentsCount,
   totalQuizzesCount,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -306,7 +306,7 @@ export const StudentRosterView: React.FC<StudentRosterViewProps> = ({
     setIsSyncingAI(true);
     setTimeout(() => {
       setIsSyncingAI(false);
-      triggerToast('Đã đồng bộ kết quả Quiz mới nhất và cập nhật lại điểm mạnh/điểm yếu cho 74 sinh viên!');
+      triggerToast(`Đã đồng bộ kết quả Quiz mới nhất và cập nhật lại hồ sơ cho ${students.length} sinh viên!`);
     }, 900);
   };
 
@@ -348,7 +348,7 @@ export const StudentRosterView: React.FC<StudentRosterViewProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <span>Hồ sơ Sinh viên & Phân tích Năng lực AI ({enrolledStudentsCount} sinh viên)</span>
+              <span>Hồ sơ Sinh viên & Phân tích Năng lực AI ({students.length} sinh viên)</span>
               <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-100 text-purple-800 border border-purple-200 flex items-center gap-1">
                 <Sparkles size={11} className="text-purple-600" />
                 Cập nhật thường xuyên từ Quiz
@@ -379,7 +379,7 @@ export const StudentRosterView: React.FC<StudentRosterViewProps> = ({
               <span>Sĩ số sinh viên</span>
               <GraduationCap size={16} className="text-blue-600" />
             </div>
-            <div className="text-2xl font-extrabold text-slate-900">{enrolledStudentsCount}</div>
+            <div className="text-2xl font-extrabold text-slate-900">{students.length}</div>
             <div className="text-[11px] text-emerald-600 font-medium mt-1">100% tài khoản chính thức</div>
           </div>
 
@@ -388,7 +388,12 @@ export const StudentRosterView: React.FC<StudentRosterViewProps> = ({
               <span>Điểm trung bình lớp</span>
               <Award size={16} className="text-amber-500" />
             </div>
-            <div className="text-2xl font-extrabold text-[#1E3A6E]">8.1 <span className="text-xs text-slate-400 font-normal">/ 10</span></div>
+            <div className="text-2xl font-extrabold text-[#1E3A6E]">
+              {students.length > 0
+                ? (students.reduce((acc, s) => acc + s.score, 0) / (students.filter((s) => s.score > 0).length || 1)).toFixed(1)
+                : '8.1'}{' '}
+              <span className="text-xs text-slate-400 font-normal">/ 10</span>
+            </div>
             <div className="text-[11px] text-emerald-600 font-medium mt-1 flex items-center gap-1">
               <TrendingUp size={12} />
               <span>+0.4 điểm so với đầu kỳ</span>
@@ -400,8 +405,15 @@ export const StudentRosterView: React.FC<StudentRosterViewProps> = ({
               <span>Nhóm Xuất sắc & Tốt</span>
               <UserCheck size={16} className="text-emerald-600" />
             </div>
-            <div className="text-2xl font-extrabold text-emerald-700">62 <span className="text-xs text-slate-400 font-normal">/ 74 SV</span></div>
-            <div className="text-[11px] text-slate-500 font-medium mt-1">83.7% nắm vững khung PEAS & Tìm kiếm</div>
+            <div className="text-2xl font-extrabold text-emerald-700">
+              {students.filter((s) => s.score >= 7.5).length}{' '}
+              <span className="text-xs text-slate-400 font-normal">/ {students.length} SV</span>
+            </div>
+            <div className="text-[11px] text-slate-500 font-medium mt-1">
+              {students.length > 0
+                ? Math.round((students.filter((s) => s.score >= 7.5).length / students.length) * 100)
+                : 80}% nắm vững kiến thức
+            </div>
           </div>
 
           <div className="bg-white border border-red-200 bg-red-50/20 rounded-xl p-4 shadow-2xs">
@@ -409,7 +421,10 @@ export const StudentRosterView: React.FC<StudentRosterViewProps> = ({
               <span>Cần trợ giúp / Chưa nộp</span>
               <AlertTriangle size={16} className="text-red-500" />
             </div>
-            <div className="text-2xl font-extrabold text-red-600">2 <span className="text-xs text-slate-400 font-normal">SV</span></div>
+            <div className="text-2xl font-extrabold text-red-600">
+              {students.filter((s) => s.status === 'Cần hỗ trợ' || s.status === 'Chưa nộp').length}{' '}
+              <span className="text-xs text-slate-400 font-normal">SV</span>
+            </div>
             <div className="text-[11px] text-red-600 font-medium mt-1">Có cảnh báo AI cần can thiệp</div>
           </div>
         </div>
@@ -491,10 +506,9 @@ export const StudentRosterView: React.FC<StudentRosterViewProps> = ({
               <tr>
                 <th className="p-3.5 pl-4">Sinh viên & MSSV</th>
                 <th className="p-3.5 text-center">Điểm TB Quiz</th>
-                <th className="p-3.5 text-center">Tiến độ</th>
-                <th className="p-3.5 min-w-[220px]">Điểm mạnh (AI ghi nhận)</th>
-                <th className="p-3.5 min-w-[240px]">Điểm yếu & Cần bù (AI ghi nhận)</th>
-                <th className="p-3.5 text-right pr-4">Hành động</th>
+                <th className="p-3.5 text-center">Tiến độ nộp bài</th>
+                <th className="p-3.5">Cập nhật lần cuối</th>
+                <th className="p-3.5 text-right pr-4">Chi tiết hồ sơ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -592,58 +606,15 @@ export const StudentRosterView: React.FC<StudentRosterViewProps> = ({
                     </div>
                   </td>
 
-                  {/* Column 4: Strengths tags */}
+                  {/* Column 4: Last updated & activity */}
                   <td className="p-3.5">
-                    {st.strengths.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {st.strengths.map((s, sIdx) => (
-                          <span
-                            key={sIdx}
-                            className="inline-flex items-center gap-1 text-[11px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200/70 px-2 py-0.5 rounded-md"
-                            title={s.detail}
-                          >
-                            <CheckCircle2 size={11} className="text-emerald-600 shrink-0" />
-                            <span className="truncate max-w-[200px]">{s.topic}</span>
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-[11px] text-slate-400 italic">Chưa ghi nhận điểm mạnh</span>
-                    )}
+                    <div className="text-xs text-slate-600 font-medium">{st.lastUpdated}</div>
+                    <div className="text-[10.5px] text-slate-400">
+                      {st.quizHistory.filter((q) => q.status === 'Passed').length} bài đạt yêu cầu
+                    </div>
                   </td>
 
-                  {/* Column 5: Weaknesses tags */}
-                  <td className="p-3.5">
-                    {st.weaknesses.length > 0 ? (
-                      <div className="space-y-1">
-                        {st.weaknesses.map((w, wIdx) => (
-                          <div
-                            key={wIdx}
-                            className={`p-1.5 rounded-md text-[11px] flex items-start gap-1.5 border ${
-                              st.status === 'Cần hỗ trợ'
-                                ? 'bg-red-50 text-red-800 border-red-200'
-                                : 'bg-amber-50 text-amber-900 border-amber-200/80'
-                            }`}
-                          >
-                            <AlertTriangle size={12} className="shrink-0 mt-0.5 text-amber-600" />
-                            <div className="min-w-0">
-                              <span className="font-bold">{w.topic}</span>
-                              <div className="text-[10px] text-slate-500 font-medium">
-                                Cần ôn: <span className="underline">{w.recommendedSlide}</span> ({w.recommendedPage})
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
-                        <CheckCircle2 size={12} />
-                        Không có điểm yếu đáng kể
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Column 6: Action */}
+                  {/* Column 5: Action */}
                   <td className="p-3.5 pr-4 text-right">
                     <button
                       onClick={(e) => {
@@ -652,7 +623,7 @@ export const StudentRosterView: React.FC<StudentRosterViewProps> = ({
                       }}
                       className="px-3 py-1.5 text-xs font-semibold text-[#1E3A6E] hover:text-white bg-white hover:bg-[#1E3A6E] border border-blue-200 rounded-lg transition-all cursor-pointer shadow-2xs inline-flex items-center gap-1"
                     >
-                      <span>Hồ sơ</span>
+                      <span>Xem chi tiết AI</span>
                       <ChevronRight size={13} />
                     </button>
                   </td>
