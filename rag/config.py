@@ -84,6 +84,21 @@ def get_ai_client() -> OpenAI:
     base_url = get_configured_base_url()
     return OpenAI(api_key=api_key or "dummy_test_key", base_url=base_url if base_url else None)
 
+def is_llm_configured() -> bool:
+    """True when an API key is present. Without one, chat and tutor answer in extractive mode."""
+    return bool(get_configured_api_key())
+
+
+# ── Platform integration ──────────────────────────────────────
+# The AI service never connects to the database. It verifies the Platform JWT with the
+# shared secret and reads course content through the Platform API using the caller's
+# own token, so enrolment and approval rules are enforced in exactly one place.
+PLATFORM_API_URL: str = os.getenv("PLATFORM_API_URL", "http://localhost:8000").rstrip("/")
+PLATFORM_TIMEOUT_SECONDS: float = float(os.getenv("PLATFORM_TIMEOUT_SECONDS", "10"))
+# Must be identical to JWT_SECRET in platform/backend/.env (same dev default as platform/backend/auth.py).
+JWT_SECRET: str = os.getenv("JWT_SECRET", "cecs-ai-hub-super-secret-dev-jwt-key-2026-day02")
+JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
+
 # ── Retrieval ──────────────────────────────────────────────────
 CHUNK_SIZE_WORDS: int = 150     # ~500 tokens
 CHUNK_OVERLAP_WORDS: int = 30

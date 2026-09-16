@@ -166,6 +166,7 @@ def analyze_competency(
     quiz_answers: list[dict],
     chat_topics: Optional[list[str]] = None,
     course_id: str = "CS101",
+    recommendations: Optional[dict[str, str]] = None,
 ) -> CompetencyReport:
     """
     Thuật toán phân tích năng lực lõi (Competency & Gap Analysis).
@@ -222,7 +223,8 @@ def analyze_competency(
                 evidence_parts.append(f"đã thắc mắc {chat_freq} lần trong khung Chat bài học")
 
             evidence_str = "; ".join(evidence_parts) + "."
-            action_str = get_recommendation_for_topic(topic)
+            # Ưu tiên trang trích dẫn thật của câu làm sai (từ Platform); nếu không có thì tra TOPIC_REVIEW_MAP.
+            action_str = (recommendations or {}).get(topic) or get_recommendation_for_topic(topic)
 
             weaknesses.append({
                 "topic": topic,

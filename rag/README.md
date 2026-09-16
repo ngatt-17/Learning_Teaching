@@ -1,7 +1,30 @@
 # Team 3 (AI & Quality Module) — CECS AI Learning Hub
 
-**Day 2 Standalone Service** | Port: `8001` | Branch: `feature/TinNguyenn-rag-day02`  
+**AI Service tích hợp với Platform** | Port: `8001` | Branch gốc: `feature/TinNguyenn-rag-day02` → tích hợp trong `feature/day03`  
 **AI Engine:** OpenAI-compatible LLM Engine (Cấu hình qua biến môi trường .env)
+
+---
+
+## 🔗 Tích hợp với Platform (Day 3)
+
+Kiến trúc và bằng chứng kiểm thử đầy đủ: [`docs/exploration/day-03/INTEGRATION.md`](../docs/exploration/day-03/INTEGRATION.md).
+
+| Hạng mục | Day 2 (standalone) | Sau tích hợp |
+|---|---|---|
+| Xác thực | `mock_auth.py` với token giả (`student_a_token`) | `auth.py`: xác minh **JWT thật của Platform** bằng `JWT_SECRET` dùng chung |
+| Quyền vào khóa học | So `enrolled_courses` trong token giả | `platform_client.py` gọi Platform API **bằng chính token người dùng** → Platform trả 403 nếu không được phân công |
+| Học liệu | `fixtures/sample_material.py` (`course-a`) | `GET /courses/{id}/materials/content` của Platform: chỉ tài liệu **đã duyệt**, có nội dung từng trang; `retriever.materials_from_platform()` lọc lại lần nữa |
+| Không có LLM key | Trả câu "[AI service error]" / câu hỏi lỗi giả với status 200 | Chat & tutor trả lời **trích dẫn nguyên câu** từ tài liệu (`generation = "extractive"`); GenQuiz trả **503** rõ ràng |
+| Cổng bằng chứng | Điểm RRF ≥ 0.05 (gần như luôn đạt) | Loại stopword Việt/Anh, yêu cầu đủ từ khóa nội dung, ưu tiên cụm 2 âm tiết ("tác tử" ≠ "điện tử") |
+| Quiz tutor | — | `POST /courses/{id}/quiz-tutor`: **hint** khi đang làm bài (không bao giờ nạp đáp án), **review** sau khi nộp (đọc attempt của chính sinh viên) |
+| Phân tích năng lực | Nhận kết quả do client gửi | `POST /api/ai/courses/{id}/quizzes/{qid}/competency` đọc attempt thật từ Platform, gợi ý đúng trang trích dẫn |
+
+AI service **không kết nối database** và **không bao giờ đọc ghi chú riêng** của sinh viên.
+
+Chạy test (offline, không gọi LLM thật — Platform được giả lập trong `tests/conftest.py` với JWT thật):
+```bash
+pytest tests test_rag.py -v      # 42 tests
+```
 
 ---
 
@@ -115,15 +138,20 @@ Theo thỏa thuận API Contract của nhóm, hàm `gen_quiz_standard()` và end
 
 ## 🔌 Danh sách API Endpoints của AI Service (Port 8001)
 
+Mọi endpoint (trừ `/health`) cần `Authorization: Bearer <JWT từ Platform>`.
+
 | Phương thức | Đường dẫn | Phân quyền | Mô tả |
 |---|---|---|---|
-| `POST` | `/api/ai/gen-quiz` | Public / Team | **API Contract cho Team 1 & Team 2** sinh 3 dạng bài tập |
-| `POST` | `/quiz/from-material` | Instructor / TA | Giảng viên sinh đề từ học liệu đã duyệt (tạo draft) |
-| `POST` | `/quiz/from-bank` | Instructor / TA | Giảng viên sinh đề từ text ngân hàng câu hỏi (tạo draft) |
-| `PATCH` | `/quiz/{draft_id}/publish` | Instructor / TA | Duyệt và xuất bản đề (bắt buộc trước khi SV xem) |
+| `POST` | `/courses/{course_id}/chat` | Thành viên khóa học | Grounded Chat RAG kèm trích dẫn số trang (`material_id`, `page_number` tùy chọn để ưu tiên trang đang xem) |
+| `POST` | `/courses/{course_id}/quiz-tutor` | Thành viên khóa học | Trợ lý Socratic cho màn hình làm bài: hint (không có `attempt_id`) / review (có `attempt_id` của chính mình) |
+| `POST` | `/api/ai/courses/{course_id}/quizzes/{quiz_id}/competency` | Sinh viên | Điểm mạnh/yếu từ attempt thật trên Platform |
+| `POST` | `/quiz/from-material` | Instructor / TA / Admin | Sinh câu hỏi nháp từ học liệu **đã duyệt** (UUID thật của Platform); web lưu thành quiz `draft` trên Platform |
+| `POST` | `/quiz/from-bank` | Instructor / TA / Admin | Giảng viên sinh đề từ text ngân hàng câu hỏi (tạo draft) |
+| `POST` | `/api/ai/gen-quiz` | Instructor / TA / Admin | **API Contract** sinh 3 dạng bài tập từ nội dung gửi lên |
+| `POST` | `/api/ai/analyze-competency` | Staff; sinh viên chỉ cho chính mình | Phân tích từ kết quả gửi lên |
 | `POST` | `/quiz/from-note` | Student | Sinh viên tự ôn tập từ ghi chú riêng (**không lưu DB**) |
-| `POST` | `/courses/{course_id}/chat` | Student / All | Grounded Chat RAG kèm trích dẫn số trang |
-| `GET` | `/health` | All | Kiểm tra tình trạng hoạt động của service |
+| `PATCH` | `/quiz/{draft_id}/publish` · `GET /quiz/{draft_id}` | Instructor / TA / Admin | (Legacy Day 2, bộ nhớ tạm) — cổng duyệt thật là `PATCH /courses/{id}/quizzes/{qid}/status` trên Platform |
+| `GET` | `/health` | All | Tình trạng service, `llm_configured` |
 
 ---
 
@@ -135,4 +163,8 @@ LLM_API_KEY=your-api-key-here
 LLM_BASE_URL=https://api.your-provider.com/v1
 LLM_MODEL=your-model-name-here
 AI_SERVICE_PORT=8001
+
+# Bắt buộc khi tích hợp
+PLATFORM_API_URL=http://localhost:8000
+JWT_SECRET=<giống hệt JWT_SECRET trong platform/backend/.env>
 ```

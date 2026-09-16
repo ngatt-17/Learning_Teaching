@@ -26,7 +26,6 @@ from competency_analyzer import (
 )
 
 client = TestClient(app)
-STUDENT_A = {"Authorization": "Bearer student_a_token"}
 
 
 def test_01_compute_topic_mastery_calculation():
@@ -119,7 +118,7 @@ def test_04_weakness_triggered_by_frequent_chat_inquiries():
     assert "đã thắc mắc 2 lần" in weaknesses[0]["evidence"]
 
 
-def test_05_privacy_boundary_rejects_private_notes():
+def test_05_privacy_boundary_rejects_private_notes(headers):
     """Kiểm tra nguyên tắc bảo mật: Cấm nhận dữ liệu private_notes."""
     payload = {
         "student_id": "std_123",
@@ -133,13 +132,13 @@ def test_05_privacy_boundary_rejects_private_notes():
     resp = client.post(
         "/api/ai/analyze-competency",
         json=payload,
-        headers=STUDENT_A,
+        headers=headers("student_a"),
     )
     assert resp.status_code == 400
     assert "Security violation" in resp.json()["detail"]
 
 
-def test_06_api_endpoint_json_contract():
+def test_06_api_endpoint_json_contract(headers):
     """Kiểm tra đầy đủ luồng API POST /api/ai/analyze-competency khớp chuẩn hợp đồng Day 02."""
     payload = {
         "student_id": "std_123",
@@ -155,7 +154,7 @@ def test_06_api_endpoint_json_contract():
     resp = client.post(
         "/api/ai/analyze-competency",
         json=payload,
-        headers=STUDENT_A,
+        headers=headers("instructor"),
     )
     assert resp.status_code == 200, resp.text
     data = resp.json()
@@ -172,3 +171,26 @@ def test_06_api_endpoint_json_contract():
     assert any(s["topic"] == "Cú pháp & Kiểu dữ liệu cơ bản" for s in summary["strengths"])
     # Weaknesses chứa Con trỏ
     assert any(w["topic"] == "Con trỏ & Quản lý bộ nhớ" for w in summary["weaknesses"])
+
+
+def test_07_student_can_only_analyze_themselves(headers):
+    payload = {"student_id": "someone-else", "quiz_answers": [{"question_id": "q1", "topic": "Loops", "is_correct": False}]}
+    resp = client.post("/api/ai/analyze-competency", json=payload, headers=headers("student_a"))
+    assert resp.status_code == 403
+
+
+def test_08_attempt_competency_reads_platform_attempt_and_cites_pages(headers, fake_platform):
+    resp = client.post("/api/ai/courses/course-a/quizzes/quiz-python-week1/competency", json={},
+                       headers=headers("student_a"))
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert ("my_attempts", "quiz-python-week1") in fake_platform.calls
+    assert data["student_id"] == "00000000-0000-0000-0000-00000000000a"
+    weak = {w["topic"]: w for w in data["competency_summary"]["weaknesses"]}
+    strong = {s["topic"] for s in data["competency_summary"]["strengths"]}
+    assert "Functions" in weak and "Loops" in strong
+    assert weak["Functions"]["recommended_action"] == "Đọc lại Introduction to Programming — Week 1, trang 3."
+
+    none_yet = client.post("/api/ai/courses/course-a/quizzes/quiz-python-week1/competency", json={},
+                           headers=headers("instructor"))
+    assert none_yet.status_code == 404

@@ -3,14 +3,28 @@
 Our shared workspace for team documents, research, prototype, and application code.
 
 **Product launch:** 5 October 2026. All basic features must be working and ready to showcase to leaders and faculty, supporting a controlled pilot in 1–4 Fall 2026 courses.  
-**Current state:** Documentation only. The AI Studio demo has not been imported; application code, database setup, CI, and staging are not yet available here.
+**Current state:** Integrated pilot application (branch `feature/day03`): one web app for all three roles, the Platform API with PostgreSQL/RLS, and the AI service, running locally with seeded synthetic data. CI and staging are not yet set up; LLM answers need a configured provider key. See the [integration report](docs/exploration/day-03/INTEGRATION.md) and [open questions](docs/exploration/day-03/OPEN_QUESTIONS.md).
 
 ## Start here
 
 1. [Working in this project](docs/team_instructions/WORKING_IN_THIS_PROJECT.md)
 2. [Day 1: research and joint product plan](docs/team_instructions/DAY_01_INSTRUCTIONS.md)
 3. [Day 2: build and integrate](docs/team_instructions/DAY_02_INSTRUCTIONS.md)
-4. [Prototype status](prototypes/README.md)
+4. [**Run and test locally**](docs/RUN_AND_TEST.md)
+5. [Integration report: architecture, contracts, evidence](docs/exploration/day-03/INTEGRATION.md)
+6. [Prototype status](prototypes/README.md)
+
+## Run and test locally
+
+Everything runs locally with Python 3.11+, Node 22 and PostgreSQL; no Docker or API key is needed. The **[run and test guide](docs/RUN_AND_TEST.md)** has step-by-step commands for macOS/Linux and Windows, demo accounts, walkthroughs for the three roles, every test suite, and troubleshooting. In short:
+
+| Step | Command |
+|---|---|
+| Database | `psql -U postgres -f platform/database/schema.sql` |
+| Platform API → :8000 | in `platform/backend`: create venv, `pip install -r requirements.txt`, copy `.env.example` to `.env`, `uvicorn main:app --reload --port 8000` |
+| AI service → :8001 | in `rag`: same steps, `uvicorn main:app --reload --port 8001` |
+| Web app → :5173 | in `web`: `npm ci`, `npm run dev` |
+| Tests | `pytest tests/` (platform, 43), `pytest tests test_rag.py` (AI, 42), `npm run lint && npm run build` (web), `python scripts/smoke_e2e.py` (end-to-end, 25 checks) |
 
 ## Product flows
 
@@ -78,9 +92,13 @@ For the 5 October showcase, demonstrate the instructor, student, and CECS admin 
 |---|---|
 | `docs/team_instructions/` | Shared onboarding and delivery rules |
 | `docs/research/` | Individual research and joint product plan, created through contributions |
-| `docs/exploration/` | Day 2 integration evidence, created through contributions |
+| `docs/exploration/` | Integration evidence and open questions, created through contributions |
 | `docs/decisions/` | Reviewed product/technical decisions, added as agreed |
-| `prototypes/` | Reference-demo guidance; source import pending |
-| `src/`, `tests/`, `.github/` | Planned application, tests, and automation; not yet created |
+| `web/` | Web app for students, instructors/TAs and CECS admins (React + Vite) |
+| `platform/backend/`, `platform/database/` | Platform API (FastAPI): auth, courses, materials, quizzes, notes (RLS), scores, feedback; PostgreSQL schema and migrations |
+| `rag/` | AI service (FastAPI): grounded chat, Socratic quiz tutor, quiz generation, competency analysis |
+| `scripts/` | Cross-service tooling (`smoke_e2e.py`) |
+| `prototypes/` | Reference demos (AI Studio, Day 2 UI prototypes); not part of the application build |
+| `.github/` | Planned CI; not yet created |
 
 Organize code by feature with shared components and services. Keep reference-demo dependencies separate until a reviewed decision establishes the application baseline. Use task branches, not permanent branches per person or specialty.

@@ -4,6 +4,7 @@
 --   psql -U postgres -d cecs_ai_hub -f platform/database/migrations/002_quiz.sql
 -- (schema.sql already contains these tables for a fresh install)
 -- ============================================================
+\encoding UTF8
 
 -- ------------------------------------------------------------
 -- quizzes — một bài quiz của buổi học, hoặc quiz tổng hợp sinh ra cho SV

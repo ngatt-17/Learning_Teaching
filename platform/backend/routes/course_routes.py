@@ -40,6 +40,36 @@ def list_courses(current_user: UserPayload = Depends(get_current_user)):
         # Convert UUID to string for JSON serialization
         return [{**c, "id": str(c["id"])} for c in courses]
 
+@router.get("/readiness", dependencies=[Depends(require_role("instructor", "ta", "admin"))])
+def course_readiness(current_user: UserPayload = Depends(get_current_user)):
+    """
+    Course readiness for staff dashboards: enrolment, material lifecycle and quiz review
+    counts. Admin sees every course; instructors/TAs see their assigned courses.
+    Aggregate counts only — no private notes, no feedback text, no student identity.
+    """
+    with get_db() as cur:
+        cur.execute("""
+            SELECT c.id, c.code, c.name, c.term, u.name AS instructor_name,
+                   (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.id AND e.role = 'student') AS students,
+                   (SELECT COUNT(*) FROM materials m WHERE m.course_id = c.id) AS materials_total,
+                   (SELECT COUNT(*) FROM materials m WHERE m.course_id = c.id
+                       AND m.status = 'approved' AND m.approved_for_ai) AS materials_approved,
+                   (SELECT COUNT(*) FROM materials m WHERE m.course_id = c.id
+                       AND m.status IN ('draft', 'processing')) AS materials_pending,
+                   (SELECT COUNT(*) FROM materials m WHERE m.course_id = c.id AND m.status = 'failed') AS materials_failed,
+                   (SELECT COUNT(*) FROM quizzes q WHERE q.course_id = c.id
+                       AND q.quiz_type = 'lesson' AND q.status = 'published') AS quizzes_published,
+                   (SELECT COUNT(*) FROM quizzes q WHERE q.course_id = c.id
+                       AND q.quiz_type = 'lesson' AND q.status = 'draft') AS quizzes_draft,
+                   (SELECT COUNT(*) FROM anonymous_feedback f WHERE f.course_id = c.id) AS feedback_count
+            FROM courses c
+            LEFT JOIN users u ON u.id = c.instructor_id
+            WHERE %s OR c.id IN (SELECT course_id FROM enrollments WHERE user_id = %s)
+            ORDER BY c.code;
+        """, (current_user.role == "admin", current_user.user_id))
+        rows = cur.fetchall()
+    return [{**r, "id": str(r["id"])} for r in rows]
+
 @router.get("/{course_id}")
 def get_course_detail(course_id: str, current_user: UserPayload = Depends(require_course_access)):
     with get_db() as cur:

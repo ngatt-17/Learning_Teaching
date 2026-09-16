@@ -15,6 +15,7 @@ Cơ chế thực thi:
 from __future__ import annotations
 import logging
 import re
+import unicodedata
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -35,7 +36,10 @@ except Exception:
 
 
 def _clean_tokens(text: str) -> list[str]:
-    return re.findall(r"[a-zA-Z\u00C0-\u024F\u1E00-\u1EFF0-9_]+", text.lower())
+    # Stopwords removed so filler ("kh\u00E1c", "th\u1EBF n\u00E0o", "the") cannot create coverage or bigram matches.
+    from retriever import STOPWORDS
+    tokens = re.findall(r"[a-zA-Z\u00C0-\u024F\u1E00-\u1EFF0-9_]+", unicodedata.normalize("NFC", text).lower())
+    return [t for t in tokens if t not in STOPWORDS]
 
 
 def _cross_alignment_score(query: str, chunk_text: str) -> float:

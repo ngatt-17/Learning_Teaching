@@ -82,6 +82,26 @@ Legend — 🎓 student · 👨‍🏫 instructor/TA · 🏛️ admin. Every cou
 | `POST /courses/{id}/feedback/` | ✅ | ✅ | ✅ | Submit anonymous feedback (no author column) |
 | `GET /courses/{id}/feedback/` | — | — | ✅ | Raw feedback — admin only |
 
+### Integration additions (migration 003)
+Added so the web app and the AI service can use the Platform as their single source of truth.
+Full tables and rationale: [`docs/exploration/day-03/INTEGRATION.md`](../../docs/exploration/day-03/INTEGRATION.md#3-contract-changes-migration-003_integrationsql).
+
+| Method & path | 🎓 | 👨‍🏫 | 🏛️ | Purpose |
+|---|:--:|:--:|:--:|---|
+| `GET /courses/readiness` | — | ✅ own | ✅ all | Readiness counts for dashboards (no notes, no feedback text) |
+| `GET /courses/{id}/materials/content` | ✅ | ✅ | ✅ | **AI retrieval source** — approved materials with page text, same filter for every role |
+| `GET /courses/{id}/materials/{mid}` · `/pages` · `/file` | approved only | ✅ | ✅ | Reader and citations; drafts are `404` for students |
+| `POST /courses/{id}/materials/upload` | — | ✅ | ✅ | Multipart PDF/TXT/MD → text per page → `draft` (or `failed` with reason) |
+| `POST /courses/{id}/materials/{mid}/reprocess` · `DELETE /courses/{id}/materials/{mid}` | — | ✅ | ✅ | Retry extraction / remove material, pages and stored file |
+| `PUT /courses/{id}/quizzes/{qid}` | — | ✅ | ✅ | Edit a **draft** quiz with no attempts (review step before publishing) |
+| `GET /courses/{id}/quizzes/{qid}/question-stats` | — | ✅ | ✅ | Per-question correctness on first attempts (class misconceptions) |
+
+Question types now follow the shared AI contract: `single_choice`, `multiple_choice`
+(select all, graded all-or-nothing, answers sent as a list) and `short_answer` (matches
+`correct_answer` or any `accepted_answers`, case/space-insensitive). Questions may carry
+`topic` and `citation`; students receive neither the answer key nor the citation until they
+have submitted. Notes accept an optional `material_id` + `page_number` anchor.
+
 ### Score integrity
 A student can never write their own score. `POST /scores/activity` is the staff grading
 channel: it requires an instructor/TA/admin token, names the student explicitly, verifies
@@ -219,3 +239,13 @@ All 29 tests verify:
 
 The same checks can be replayed visually from the **🛡️ Kiểm tra phân quyền** tab of
 `http://localhost:8000/test-ui`.
+
+The integration contract has its own 14 tests (approved-only content for the AI, draft pages
+hidden, select-all and accepted-answer grading, answer keys and citations hidden before
+submission, draft-only quiz editing, note anchors, upload → draft/failed lifecycle, readiness
+scoping):
+```bash
+pytest tests/ -v          # 43 tests: access control + integration contract
+```
+Cross-service checks against running Platform + AI services: `python scripts/smoke_e2e.py`
+from the repository root.

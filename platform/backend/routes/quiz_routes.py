@@ -5,12 +5,20 @@ Grading is entirely server-side: a student submits answers, the server compares 
 against `quiz_questions.correct_answer` and writes the resulting points itself. No
 score value is ever accepted from a client, and correct answers are never included in
 a student-facing payload before the attempt is submitted.
+
+Question types follow the shared AI/Platform contract (migration 003):
+  single_choice   — one correct option; correct_answer is the option text
+  multiple_choice — select all that apply; correct_answer is a JSON array of option texts,
+                    graded all-or-nothing
+  short_answer    — free text; matches correct_answer or any accepted_answers entry,
+                    case- and whitespace-insensitively
 """
-from datetime import date, timedelta
-from typing import List, Literal, Optional
+import json
+from datetime import date, datetime, timedelta
+from typing import List, Literal, Optional, Union
 
 from psycopg2.extras import Json
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from auth import UserPayload, get_current_user
@@ -23,24 +31,64 @@ STAFF = ("instructor", "ta", "admin")
 # A comprehensive quiz must span at least this many already-studied topics.
 MIN_COMPREHENSIVE_TOPICS = 2
 
+QuestionType = Literal["single_choice", "multiple_choice", "short_answer"]
+
 
 # ─────────────────────────── models ───────────────────────────
 
+class QuestionCitation(BaseModel):
+    """Where the answer is supported in an approved material."""
+    material_id: Optional[str] = None
+    title: Optional[str] = None
+    page: Optional[int] = Field(default=None, ge=1)
+    snippet: Optional[str] = None
+
+
 class QuestionCreate(BaseModel):
-    question_type: Literal["multiple_choice", "short_answer"] = "multiple_choice"
-    prompt: str
+    question_type: QuestionType = "single_choice"
+    prompt: str = Field(min_length=1)
     options: Optional[List[str]] = None
-    correct_answer: str
+    correct_answer: Union[str, List[str]]
+    accepted_answers: Optional[List[str]] = None
     explanation: Optional[str] = None
+    topic: Optional[str] = None
+    citation: Optional[QuestionCitation] = None
+
+    @model_validator(mode="after")
+    def check_shape(self):
+        if self.question_type == "short_answer":
+            if not isinstance(self.correct_answer, str) or not self.correct_answer.strip():
+                raise ValueError("short_answer needs a non-empty text correct_answer")
+            self.options = None
+            return self
+
+        options = [o.strip() for o in (self.options or []) if o and o.strip()]
+        if len(options) < 2 or len(set(options)) != len(options):
+            raise ValueError(f"{self.question_type} needs at least two distinct options")
+        self.options = options
+
+        if self.question_type == "single_choice":
+            if not isinstance(self.correct_answer, str) or self.correct_answer.strip() not in options:
+                raise ValueError("single_choice correct_answer must be one of the options")
+            self.correct_answer = self.correct_answer.strip()
+        else:
+            answers = self.correct_answer if isinstance(self.correct_answer, list) else [self.correct_answer]
+            answers = [a.strip() for a in answers]
+            if not answers or any(a not in options for a in answers):
+                raise ValueError("multiple_choice correct_answer must be a non-empty list of options")
+            self.correct_answer = sorted(set(answers))
+        return self
 
 
 class QuizCreate(BaseModel):
     title: str
+    description: Optional[str] = None
     week_number: Optional[int] = None
     material_id: Optional[str] = None
     source: Literal["manual", "ai_draft"] = "manual"
     points_per_question: float = Field(default=1, gt=0, le=20)
     time_limit_seconds: Optional[int] = Field(default=None, gt=0, le=7200)
+    due_at: Optional[datetime] = None
     questions: List[QuestionCreate] = []
 
 
@@ -50,7 +98,8 @@ class QuizStatusUpdate(BaseModel):
 
 class SubmittedAnswer(BaseModel):
     question_id: str
-    answer: str = ""
+    # Text for single_choice / short_answer, list of option texts for multiple_choice.
+    answer: Union[str, List[str]] = ""
 
 
 class QuizSubmission(BaseModel):
@@ -68,13 +117,52 @@ def _is_staff(user: UserPayload) -> bool:
     return user.role in STAFF
 
 
-def _grade(question_type: str, correct: str, submitted: str) -> bool:
-    """Server-side marking. Short answers are matched case- and whitespace-insensitively."""
+def _normalize(text) -> str:
+    return " ".join(str(text).split()).casefold()
+
+
+def _decode_list(raw) -> List[str]:
+    """Stored/submitted select-all answers are JSON arrays; tolerate a bare string."""
+    if raw is None:
+        return []
+    if isinstance(raw, list):
+        return [str(x).strip() for x in raw if str(x).strip()]
+    try:
+        value = json.loads(raw)
+        if isinstance(value, list):
+            return [str(x).strip() for x in value if str(x).strip()]
+    except (TypeError, ValueError):
+        pass
+    return [str(raw).strip()] if str(raw).strip() else []
+
+
+def _decode_answer(question_type: str, raw):
+    return _decode_list(raw) if question_type == "multiple_choice" else raw
+
+
+def _store_answer(answer) -> str:
+    return json.dumps(sorted(set(answer)), ensure_ascii=False) if isinstance(answer, list) else answer
+
+
+def _grade(question_type: str, correct: str, submitted, accepted_answers=None) -> bool:
+    """Server-side marking against the stored answer key."""
     if submitted is None:
         return False
     if question_type == "short_answer":
-        return submitted.strip().casefold() == correct.strip().casefold()
+        if isinstance(submitted, list):
+            return False
+        candidates = [correct, *(accepted_answers or [])]
+        return bool(submitted.strip()) and _normalize(submitted) in {_normalize(c) for c in candidates if c}
+    if question_type == "multiple_choice":
+        chosen = set(_decode_list(submitted))
+        return bool(chosen) and chosen == set(_decode_list(correct))
+    if isinstance(submitted, list):
+        return False
     return submitted.strip() == correct.strip()
+
+
+def _iso(value):
+    return value.isoformat() if value is not None else None
 
 
 def _award_quiz_points(cur, student_id: str, course_id: str, column: str, points: float) -> int:
@@ -128,14 +216,53 @@ def _award_quiz_points(cur, student_id: str, course_id: str, column: str, points
 
 def _load_quiz(cur, course_id: str, quiz_id: str):
     cur.execute("""
-        SELECT id, course_id, material_id, week_number, title, quiz_type, source, status,
-               points_per_question, time_limit_seconds, created_by
+        SELECT id, course_id, material_id, week_number, title, description, quiz_type, source, status,
+               points_per_question, time_limit_seconds, due_at, created_by
         FROM quizzes WHERE id = %s AND course_id = %s;
     """, (quiz_id, course_id))
     quiz = cur.fetchone()
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found in this course")
     return quiz
+
+
+def _check_material_in_course(cur, course_id: str, material_id: Optional[str]):
+    if not material_id:
+        return
+    cur.execute("SELECT 1 FROM materials WHERE id = %s AND course_id = %s;", (material_id, course_id))
+    if not cur.fetchone():
+        raise HTTPException(status_code=400, detail="material_id does not belong to this course")
+
+
+def _insert_questions(cur, quiz_id, questions: List[QuestionCreate]):
+    for i, q in enumerate(questions, start=1):
+        cur.execute("""
+            INSERT INTO quiz_questions (quiz_id, position, question_type, prompt, options,
+                                        correct_answer, accepted_answers, explanation, topic, citation)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+        """, (quiz_id, i, q.question_type, q.prompt,
+              Json(q.options) if q.options else None,
+              _store_answer(q.correct_answer),
+              Json(q.accepted_answers) if q.accepted_answers else None,
+              q.explanation, q.topic,
+              Json(q.citation.model_dump(exclude_none=True)) if q.citation else None))
+
+
+def _quiz_header(quiz) -> dict:
+    return {
+        "id": str(quiz["id"]),
+        "course_id": str(quiz["course_id"]),
+        "material_id": str(quiz["material_id"]) if quiz["material_id"] else None,
+        "title": quiz["title"],
+        "description": quiz["description"],
+        "week_number": quiz["week_number"],
+        "quiz_type": quiz["quiz_type"],
+        "source": quiz["source"],
+        "status": quiz["status"],
+        "points_per_question": float(quiz["points_per_question"]),
+        "time_limit_seconds": quiz["time_limit_seconds"],
+        "due_at": _iso(quiz["due_at"]),
+    }
 
 
 # ─────────────────────── student endpoints ───────────────────────
@@ -149,8 +276,8 @@ def list_quizzes(course_id: str, current_user: UserPayload = Depends(require_cou
     """
     with get_db() as cur:
         cur.execute("""
-            SELECT q.id, q.week_number, q.title, q.quiz_type, q.source, q.status,
-                   q.points_per_question, q.time_limit_seconds,
+            SELECT q.id, q.week_number, q.title, q.description, q.quiz_type, q.source, q.status,
+                   q.points_per_question, q.time_limit_seconds, q.due_at, q.material_id,
                    COUNT(qq.id) AS question_count,
                    (SELECT COUNT(*) FROM quiz_attempts a
                      WHERE a.quiz_id = q.id AND a.student_id = %s) AS my_attempts,
@@ -168,7 +295,10 @@ def list_quizzes(course_id: str, current_user: UserPayload = Depends(require_cou
     return [{
         **r,
         "id": str(r["id"]),
+        "material_id": str(r["material_id"]) if r["material_id"] else None,
+        "due_at": _iso(r["due_at"]),
         "points_per_question": float(r["points_per_question"]),
+        "max_score": round(float(r["points_per_question"]) * r["question_count"], 2),
         "my_best_score": float(r["my_best_score"]) if r["my_best_score"] is not None else None,
     } for r in rows]
 
@@ -220,7 +350,8 @@ def list_topics(course_id: str, current_user: UserPayload = Depends(require_cour
 def get_quiz(course_id: str, quiz_id: str, current_user: UserPayload = Depends(require_course_access)):
     """
     Fetch a quiz to take it. For students the payload deliberately omits
-    `correct_answer` and `explanation` — they are only revealed after submitting.
+    `correct_answer`, `accepted_answers`, `explanation` and `citation` — they are only
+    revealed after submitting.
     """
     with get_db() as cur:
         quiz = _load_quiz(cur, course_id, quiz_id)
@@ -232,26 +363,20 @@ def get_quiz(course_id: str, quiz_id: str, current_user: UserPayload = Depends(r
                 raise HTTPException(status_code=403, detail="This comprehensive quiz belongs to another student")
 
         cur.execute("""
-            SELECT id, position, question_type, prompt, options
+            SELECT id, position, question_type, prompt, options, topic
             FROM quiz_questions WHERE quiz_id = %s ORDER BY position;
         """, (quiz_id,))
         questions = cur.fetchall()
 
     return {
-        "id": str(quiz["id"]),
-        "course_id": str(quiz["course_id"]),
-        "title": quiz["title"],
-        "week_number": quiz["week_number"],
-        "quiz_type": quiz["quiz_type"],
-        "status": quiz["status"],
-        "points_per_question": float(quiz["points_per_question"]),
-        "time_limit_seconds": quiz["time_limit_seconds"],
+        **_quiz_header(quiz),
         "questions": [{
             "id": str(q["id"]),
             "position": q["position"],
             "question_type": q["question_type"],
             "prompt": q["prompt"],
             "options": q["options"],
+            "topic": q["topic"],
         } for q in questions],
     }
 
@@ -277,7 +402,7 @@ def submit_quiz(
             raise HTTPException(status_code=403, detail="This comprehensive quiz belongs to another student")
 
         cur.execute("""
-            SELECT id, question_type, correct_answer FROM quiz_questions WHERE quiz_id = %s;
+            SELECT id, question_type, correct_answer, accepted_answers FROM quiz_questions WHERE quiz_id = %s;
         """, (quiz_id,))
         questions = {str(q["id"]): q for q in cur.fetchall()}
         if not questions:
@@ -292,9 +417,10 @@ def submit_quiz(
         graded = []
         correct_count = 0
         for qid, q in questions.items():
-            is_correct = _grade(q["question_type"], q["correct_answer"], submitted.get(qid, ""))
+            answer = submitted.get(qid, "")
+            is_correct = _grade(q["question_type"], q["correct_answer"], answer, q["accepted_answers"])
             correct_count += int(is_correct)
-            graded.append((qid, submitted.get(qid, ""), is_correct))
+            graded.append((qid, _store_answer(answer), is_correct))
 
         total_questions = len(questions)
         score = round(correct_count * points_per_question, 2)
@@ -337,6 +463,7 @@ def submit_quiz(
         "score": score,
         "max_score": max_score,
         "points_awarded": points_awarded,
+        "submitted_at": _iso(attempt["submitted_at"]),
         "scored_component": "comprehensive_score" if quiz["quiz_type"] == "comprehensive" else "quiz_score",
         "streak_days": streak,
         "note": None if attempt_number == 1 else "Lần làm lại chỉ để luyện tập, không cộng thêm điểm.",
@@ -346,7 +473,7 @@ def submit_quiz(
 @router.get("/{quiz_id}/my-attempts")
 def my_attempts(course_id: str, quiz_id: str, current_user: UserPayload = Depends(require_course_access)):
     """
-    The caller's own attempts, with per-question marking and explanations.
+    The caller's own attempts, with per-question marking, explanations and citations.
     Correct answers appear here only because the student has already submitted.
     """
     with get_db() as cur:
@@ -363,13 +490,22 @@ def my_attempts(course_id: str, quiz_id: str, current_user: UserPayload = Depend
         result = []
         for a in attempts:
             cur.execute("""
-                SELECT qq.position, qq.prompt, qq.question_type, qq.correct_answer, qq.explanation,
+                SELECT qq.id AS question_id, qq.position, qq.prompt, qq.question_type, qq.options,
+                       qq.correct_answer, qq.explanation, qq.topic, qq.citation,
                        aa.submitted_answer, aa.is_correct
                 FROM quiz_attempt_answers aa
                 JOIN quiz_questions qq ON qq.id = aa.question_id
                 WHERE aa.attempt_id = %s
                 ORDER BY qq.position;
             """, (a["id"],))
+            answers = []
+            for r in cur.fetchall():
+                answers.append({
+                    **r,
+                    "question_id": str(r["question_id"]),
+                    "correct_answer": _decode_answer(r["question_type"], r["correct_answer"]),
+                    "submitted_answer": _decode_answer(r["question_type"], r["submitted_answer"]),
+                })
             result.append({
                 "attempt_id": str(a["id"]),
                 "attempt_number": a["attempt_number"],
@@ -378,8 +514,8 @@ def my_attempts(course_id: str, quiz_id: str, current_user: UserPayload = Depend
                 "score": float(a["score"]),
                 "max_score": float(a["max_score"]),
                 "points_awarded": float(a["points_awarded"]),
-                "submitted_at": str(a["submitted_at"]),
-                "answers": [dict(r) for r in cur.fetchall()],
+                "submitted_at": _iso(a["submitted_at"]),
+                "answers": answers,
             })
     return result
 
@@ -436,7 +572,8 @@ def create_comprehensive_quiz(
         position = 0
         for week in weeks:
             cur.execute("""
-                SELECT qq.question_type, qq.prompt, qq.options, qq.correct_answer, qq.explanation
+                SELECT qq.question_type, qq.prompt, qq.options, qq.correct_answer, qq.accepted_answers,
+                       qq.explanation, qq.topic, qq.citation
                 FROM quiz_questions qq
                 JOIN quizzes q ON q.id = qq.quiz_id
                 WHERE q.course_id = %s AND q.week_number = %s
@@ -447,12 +584,15 @@ def create_comprehensive_quiz(
             for q in cur.fetchall():
                 position += 1
                 cur.execute("""
-                    INSERT INTO quiz_questions (quiz_id, position, question_type, prompt,
-                                                options, correct_answer, explanation)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s);
+                    INSERT INTO quiz_questions (quiz_id, position, question_type, prompt, options,
+                                                correct_answer, accepted_answers, explanation, topic, citation)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
                 """, (new_quiz["id"], position, q["question_type"], q["prompt"],
                       Json(q["options"]) if q["options"] is not None else None,
-                      q["correct_answer"], q["explanation"]))
+                      q["correct_answer"],
+                      Json(q["accepted_answers"]) if q["accepted_answers"] is not None else None,
+                      q["explanation"], q["topic"],
+                      Json(q["citation"]) if q["citation"] is not None else None))
 
         if position == 0:
             raise HTTPException(status_code=400, detail="Các tuần đã chọn chưa có câu hỏi nào")
@@ -474,8 +614,12 @@ def list_quizzes_for_staff(course_id: str, current_user: UserPayload = Depends(r
     with get_db() as cur:
         cur.execute("""
             SELECT q.id, q.week_number, q.title, q.quiz_type, q.source, q.status,
-                   q.points_per_question, COUNT(qq.id) AS question_count,
-                   (SELECT COUNT(*) FROM quiz_attempts a WHERE a.quiz_id = q.id) AS attempt_count
+                   q.points_per_question, q.time_limit_seconds, q.due_at, q.material_id,
+                   COUNT(qq.id) AS question_count,
+                   (SELECT COUNT(*) FROM quiz_attempts a WHERE a.quiz_id = q.id) AS attempt_count,
+                   (SELECT COUNT(DISTINCT a.student_id) FROM quiz_attempts a WHERE a.quiz_id = q.id) AS student_count,
+                   (SELECT AVG(a.score / NULLIF(a.max_score, 0)) FROM quiz_attempts a
+                     WHERE a.quiz_id = q.id AND a.attempt_number = 1) AS first_attempt_avg_ratio
             FROM quizzes q
             LEFT JOIN quiz_questions qq ON qq.quiz_id = q.id
             WHERE q.course_id = %s
@@ -483,7 +627,15 @@ def list_quizzes_for_staff(course_id: str, current_user: UserPayload = Depends(r
             ORDER BY q.week_number NULLS LAST, q.created_at;
         """, (course_id,))
         rows = cur.fetchall()
-    return [{**r, "id": str(r["id"]), "points_per_question": float(r["points_per_question"])} for r in rows]
+    return [{
+        **r,
+        "id": str(r["id"]),
+        "material_id": str(r["material_id"]) if r["material_id"] else None,
+        "due_at": _iso(r["due_at"]),
+        "points_per_question": float(r["points_per_question"]),
+        "first_attempt_avg_ratio": round(float(r["first_attempt_avg_ratio"]), 3)
+                                   if r["first_attempt_avg_ratio"] is not None else None,
+    } for r in rows]
 
 
 @router.post("/", dependencies=[Depends(require_role(*STAFF))], status_code=status.HTTP_201_CREATED)
@@ -493,23 +645,16 @@ def create_quiz(course_id: str, data: QuizCreate, current_user: UserPayload = De
     students without an instructor publishing it.
     """
     with get_db() as cur:
+        _check_material_in_course(cur, course_id, data.material_id)
         cur.execute("""
-            INSERT INTO quizzes (course_id, material_id, week_number, title, quiz_type, source,
-                                 status, points_per_question, time_limit_seconds, created_by)
-            VALUES (%s, %s, %s, %s, 'lesson', %s, 'draft', %s, %s, %s)
+            INSERT INTO quizzes (course_id, material_id, week_number, title, description, quiz_type, source,
+                                 status, points_per_question, time_limit_seconds, due_at, created_by)
+            VALUES (%s, %s, %s, %s, %s, 'lesson', %s, 'draft', %s, %s, %s, %s)
             RETURNING id, title, status, source;
-        """, (course_id, data.material_id, data.week_number, data.title, data.source,
-              data.points_per_question, data.time_limit_seconds, current_user.user_id))
+        """, (course_id, data.material_id, data.week_number, data.title, data.description, data.source,
+              data.points_per_question, data.time_limit_seconds, data.due_at, current_user.user_id))
         quiz = cur.fetchone()
-
-        for i, q in enumerate(data.questions, start=1):
-            cur.execute("""
-                INSERT INTO quiz_questions (quiz_id, position, question_type, prompt,
-                                            options, correct_answer, explanation)
-                VALUES (%s, %s, %s, %s, %s, %s, %s);
-            """, (quiz["id"], i, q.question_type, q.prompt,
-                  Json(q.options) if q.options else None,
-                  q.correct_answer, q.explanation))
+        _insert_questions(cur, quiz["id"], data.questions)
 
     return {
         "id": str(quiz["id"]),
@@ -520,23 +665,56 @@ def create_quiz(course_id: str, data: QuizCreate, current_user: UserPayload = De
     }
 
 
+@router.put("/{quiz_id}", dependencies=[Depends(require_role(*STAFF))])
+def update_draft_quiz(course_id: str, quiz_id: str, data: QuizCreate,
+                      current_user: UserPayload = Depends(require_course_access)):
+    """
+    Review/edit step before publishing: replace a draft quiz's settings and questions.
+    Only drafts without attempts can be edited, so a graded attempt always matches the
+    questions that were actually asked. Unpublish a quiz (status → draft) to edit it.
+    """
+    with get_db() as cur:
+        quiz = _load_quiz(cur, course_id, quiz_id)
+        if quiz["quiz_type"] != "lesson":
+            raise HTTPException(status_code=400, detail="Only lesson quizzes can be edited")
+        if quiz["status"] != "draft":
+            raise HTTPException(status_code=409, detail="Only draft quizzes can be edited; unpublish it first")
+        cur.execute("SELECT COUNT(*) AS n FROM quiz_attempts WHERE quiz_id = %s;", (quiz_id,))
+        if cur.fetchone()["n"] > 0:
+            raise HTTPException(status_code=409, detail="This quiz already has attempts and cannot be edited")
+        _check_material_in_course(cur, course_id, data.material_id)
+
+        # The source is kept: an AI draft stays labelled as AI-assisted after review.
+        cur.execute("""
+            UPDATE quizzes SET title = %s, description = %s, week_number = %s, material_id = %s,
+                   points_per_question = %s, time_limit_seconds = %s, due_at = %s, updated_at = NOW()
+            WHERE id = %s;
+        """, (data.title, data.description, data.week_number, data.material_id,
+              data.points_per_question, data.time_limit_seconds, data.due_at, quiz_id))
+        cur.execute("DELETE FROM quiz_questions WHERE quiz_id = %s;", (quiz_id,))
+        _insert_questions(cur, quiz_id, data.questions)
+
+    return {"id": quiz_id, "status": "draft", "question_count": len(data.questions)}
+
+
 @router.get("/{quiz_id}/manage", dependencies=[Depends(require_role(*STAFF))])
 def get_quiz_for_staff(course_id: str, quiz_id: str, current_user: UserPayload = Depends(require_course_access)):
     """Full quiz including correct answers — for instructor review before publishing."""
     with get_db() as cur:
         quiz = _load_quiz(cur, course_id, quiz_id)
         cur.execute("""
-            SELECT id, position, question_type, prompt, options, correct_answer, explanation
+            SELECT id, position, question_type, prompt, options, correct_answer, accepted_answers,
+                   explanation, topic, citation
             FROM quiz_questions WHERE quiz_id = %s ORDER BY position;
         """, (quiz_id,))
-        questions = [{**dict(q), "id": str(q["id"])} for q in cur.fetchall()]
+        questions = [{
+            **dict(q),
+            "id": str(q["id"]),
+            "correct_answer": _decode_answer(q["question_type"], q["correct_answer"]),
+        } for q in cur.fetchall()]
     return {
-        **dict(quiz),
-        "id": str(quiz["id"]),
-        "course_id": str(quiz["course_id"]),
-        "material_id": str(quiz["material_id"]) if quiz["material_id"] else None,
+        **_quiz_header(quiz),
         "created_by": str(quiz["created_by"]) if quiz["created_by"] else None,
-        "points_per_question": float(quiz["points_per_question"]),
         "questions": questions,
     }
 
@@ -584,6 +762,41 @@ def list_attempts_for_staff(course_id: str, quiz_id: str, current_user: UserPayl
         "max_score": float(r["max_score"]),
         "points_awarded": float(r["points_awarded"]),
         "submitted_at": str(r["submitted_at"]),
+    } for r in rows]
+
+
+@router.get("/{quiz_id}/question-stats", dependencies=[Depends(require_role(*STAFF))])
+def question_stats_for_staff(course_id: str, quiz_id: str, current_user: UserPayload = Depends(require_course_access)):
+    """
+    Aggregate correctness per question (first attempts only) — the basis of the
+    class misconception view. Counts only; no student identity and no private notes.
+    """
+    with get_db() as cur:
+        _load_quiz(cur, course_id, quiz_id)
+        cur.execute("""
+            SELECT qq.id, qq.position, qq.prompt, qq.topic,
+                   COUNT(fa.attempt_id) AS answered,
+                   COUNT(fa.attempt_id) FILTER (WHERE fa.is_correct) AS correct
+            FROM quiz_questions qq
+            LEFT JOIN (
+                SELECT aa.question_id, aa.attempt_id, aa.is_correct
+                FROM quiz_attempt_answers aa
+                JOIN quiz_attempts a ON a.id = aa.attempt_id
+                WHERE a.attempt_number = 1
+            ) fa ON fa.question_id = qq.id
+            WHERE qq.quiz_id = %s
+            GROUP BY qq.id
+            ORDER BY qq.position;
+        """, (quiz_id,))
+        rows = cur.fetchall()
+    return [{
+        "question_id": str(r["id"]),
+        "position": r["position"],
+        "prompt": r["prompt"],
+        "topic": r["topic"],
+        "answered": r["answered"],
+        "correct": r["correct"],
+        "correct_ratio": round(r["correct"] / r["answered"], 3) if r["answered"] else None,
     } for r in rows]
 
 

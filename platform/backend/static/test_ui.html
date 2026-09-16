@@ -538,7 +538,7 @@ async function openQuiz(quizId){
     <p class="hint">${leaked ? '❌ Payload có lộ đáp án!' : '✅ Payload không chứa đáp án đúng — server chấm sau khi nộp.'}</p>
     ${q.questions.map(qq => `<div style="margin:14px 0">
       <b>${qq.position}. ${escapeHtml(qq.prompt)}</b>
-      ${qq.question_type === 'multiple_choice'
+      ${qq.question_type !== 'short_answer'
         ? (qq.options || []).map(o => `<label style="display:flex;gap:8px;align-items:center;color:var(--text);margin:4px 0">
              <input type="radio" name="q_${qq.id}" value="${escapeHtml(o)}" style="width:auto"> ${escapeHtml(o)}</label>`).join('')
         : `<input name="q_${qq.id}" placeholder="Nhập câu trả lời">`}
@@ -644,7 +644,7 @@ async function createQuiz(){
     week_number: Number(document.getElementById('qzWeek').value),
     points_per_question: Number(document.getElementById('qzPoints').value),
     questions: [{
-      question_type: 'multiple_choice',
+      question_type: 'single_choice',
       prompt: document.getElementById('qzPrompt').value,
       options,
       correct_answer: document.getElementById('qzCorrect').value

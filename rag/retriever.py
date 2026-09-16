@@ -12,8 +12,10 @@ Theo chuẩn thiết kế Day 18 (Production RAG):
 from __future__ import annotations
 import math
 import re
+import unicodedata
 from typing import TypedDict
 
+from config import CHUNK_SIZE_WORDS, CHUNK_OVERLAP_WORDS
 from fixtures.sample_material import get_approved_materials_for_course
 
 
@@ -24,11 +26,72 @@ class RetrievedChunk(TypedDict):
     snippet: str        # ~120 ký tự đầu cho hiển thị UI
     text: str           # Toàn văn nội dung chunk để LLM đọc và tổng hợp
     score: float
+    matched_terms: int  # Số từ khóa nội dung (không tính stopword) của câu hỏi có trong chunk
+    phrase_hits: int    # Số cụm 2 âm tiết liền nhau của câu hỏi ("tác tử", "time quantum") có trong chunk
+
+
+# Từ chức năng không mang nội dung — bỏ qua khi đo mức độ khớp bằng chứng, để câu hỏi
+# ngoài phạm vi ("thời tiết hôm nay thế nào?") không "khớp" tài liệu chỉ nhờ "là", "gì", "the".
+STOPWORDS: frozenset[str] = frozenset("""
+là gì của và có các những được cho trong một này nào không thế hãy em bạn mình tôi giúp ạ với về khi thì
+như hỏi sao vì tại nên đã đang sẽ rồi nhé nhỉ vậy ra vào lên đó đây kia ở từ theo bằng hay hoặc mà nếu
+thể cần phải muốn biết giải thích khái niệm nêu cách xin chào ơi ai khác nhau giống giữa gồm loại dùng để làm
+bao nhiêu thường
+the a an is are was were be been what which who whom how why when where of in on at to for from by with
+and or not no do does did can could should would will this that these those it its as into about please
+explain tell me my i you your we our there their than then so if used use difference between different mean
+means define definition
+""".split())
 
 
 def _tokenize(text: str) -> list[str]:
-    # Handle both ASCII and unicode (Vietnamese, etc.)
-    return re.findall(r"[a-zA-Z\u00C0-\u024F\u1E00-\u1EFF]+", text.lower())
+    # Handle both ASCII and unicode (Vietnamese, etc.); NFC keeps precomposed diacritics in one token.
+    return re.findall(r"[0-9a-zA-Z\u00C0-\u024F\u1E00-\u1EFF]+", unicodedata.normalize("NFC", text).lower())
+
+
+def content_tokens(text: str) -> list[str]:
+    """Tokens that carry meaning: stopwords removed."""
+    return [t for t in _tokenize(text) if t not in STOPWORDS]
+
+
+def content_bigrams(tokens: list[str]) -> set[tuple[str, str]]:
+    """
+    Adjacent pairs of meaningful tokens. Vietnamese words are usually two syllables, so a
+    pair ("tác", "tử") identifies the word where a single syllable ("tử" in "điện tử") cannot.
+    """
+    return {(a, b) for a, b in zip(tokens, tokens[1:]) if a not in STOPWORDS and b not in STOPWORDS}
+
+
+def _split_words(text: str, size: int, overlap: int) -> list[str]:
+    words = text.split()
+    if len(words) <= size:
+        return [text.strip()] if text.strip() else []
+    step = max(size - overlap, 1)
+    return [" ".join(words[i:i + size]) for i in range(0, len(words), step)]
+
+
+def materials_from_platform(content: dict) -> dict[str, dict]:
+    """
+    Convert the Platform API payload (GET /courses/{id}/materials/content) into the
+    fixture shape used by retrieve(). Pages longer than CHUNK_SIZE_WORDS are split into
+    overlapping chunks that keep their page number, so every citation stays exact.
+    Materials not marked approved are dropped again here (defence in depth).
+    """
+    materials: dict[str, dict] = {}
+    for m in content.get("materials", []):
+        if m.get("status", "approved") != "approved" or m.get("approved_for_ai") is False:
+            continue
+        chunks = []
+        for page in m.get("pages", []):
+            for piece in _split_words(page.get("content", ""), CHUNK_SIZE_WORDS, CHUNK_OVERLAP_WORDS):
+                chunks.append({"page": page["page_number"], "text": piece})
+        materials[m["id"]] = {
+            "course_id": content.get("course_id"),
+            "title": m["title"],
+            "approved_for_ai": True,
+            "chunks": chunks,
+        }
+    return materials
 
 
 def _tf(tokens: list[str]) -> dict[str, float]:
@@ -147,14 +210,25 @@ def _semantic_cosine_scores(query_tokens: list[str], docs: list[list[str]]) -> l
     return scores
 
 
-def retrieve(query: str, course_id: str, top_k: int = 5) -> list[RetrievedChunk]:
+def retrieve(
+    query: str,
+    course_id: str,
+    top_k: int = 5,
+    materials: dict[str, dict] | None = None,
+    prefer_material_id: str | None = None,
+) -> list[RetrievedChunk]:
     """
     Hybrid Search (BM25 + Semantic + RRF) trên approved materials của course_id.
     - BM25: Bắt chính xác từ khóa kỹ thuật.
     - Semantic: TF-IDF với từ điển mở rộng Anh-Việt.
     - RRF (Reciprocal Rank Fusion): Gộp 2 bảng xếp hạng với k=60.
+
+    `materials`: nội dung đã duyệt lấy từ Platform API (materials_from_platform). Khi
+    None, dùng fixtures offline (CLI demo, eval_benchmark).
+    `prefer_material_id`: tài liệu sinh viên đang mở — được cộng điểm nhẹ khi xếp hạng.
     """
-    approved = get_approved_materials_for_course(course_id)
+    source = materials if materials is not None else get_approved_materials_for_course(course_id)
+    approved = {mid: mat for mid, mat in source.items() if mat.get("approved_for_ai")}
     if not approved:
         return []
 
@@ -168,8 +242,12 @@ def retrieve(query: str, course_id: str, top_k: int = 5) -> list[RetrievedChunk]
         return []
 
     tokenized_docs = [_tokenize(text) for _, _, _, text in all_docs]
-    base_query_tokens = _tokenize(query)
+    base_query_tokens = content_tokens(query)
     expanded_query_tokens = _expand_query_tokens(query, base_query_tokens)
+    if not expanded_query_tokens:
+        return []
+    query_terms = set(expanded_query_tokens)
+    query_phrases = content_bigrams(_tokenize(query))
 
     # 1. Điểm BM25 (dùng cả base tokens và expanded tokens)
     bm25_scores = _bm25_scores(expanded_query_tokens, tokenized_docs)
@@ -210,14 +288,19 @@ def retrieve(query: str, course_id: str, top_k: int = 5) -> list[RetrievedChunk]
         mid, title, page, text = all_docs[doc_i]
         # Chuẩn hóa score để tương thích ngược với MIN_RELEVANCE_SCORE (score > 0.05)
         # Điểm RRF tối đa ~ 1/61 + 1/61 = 0.0328 -> nhân tỉ lệ ~10.0 để điểm rõ ràng
-        norm_score = round(rrf_scores[doc_i] * 10.0, 4)
+        norm_score = rrf_scores[doc_i] * 10.0
+        if prefer_material_id and mid == prefer_material_id:
+            norm_score *= 1.15
         results.append(RetrievedChunk(
             material_id=mid,
             title=title,
             page=page,
-            snippet=text[:120].rstrip() + "…",
+            snippet=text[:120].rstrip() + ("…" if len(text) > 120 else ""),
             text=text,
-            score=norm_score,
+            score=round(norm_score, 4),
+            matched_terms=len(query_terms.intersection(tokenized_docs[doc_i])),
+            phrase_hits=len(query_phrases.intersection(content_bigrams(tokenized_docs[doc_i]))),
         ))
 
+    results.sort(key=lambda r: r["score"], reverse=True)
     return results[:top_k]

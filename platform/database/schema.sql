@@ -4,11 +4,16 @@
 --   psql -U postgres -f schema.sql
 -- ============================================================
 
+-- The files are UTF-8 (Vietnamese seed text). Without this, psql on Windows uses the
+-- console code page (e.g. WIN1252) and the seed inserts fail or store garbled text.
+\encoding UTF8
+
 -- 1. Tạo database
 CREATE DATABASE cecs_ai_hub;
 
 -- Kết nối vào database vừa tạo
 \c cecs_ai_hub;
+\encoding UTF8
 
 -- ============================================================
 -- 2. Enable UUID extension
@@ -389,6 +394,14 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO enrollments (user_id, course_id, role) VALUES
     ('00000000-0000-0000-0000-000000000005', '10000000-0000-0000-0000-000000000001', 'student')
 ON CONFLICT (user_id, course_id) DO NOTHING;
+
+-- ============================================================
+-- 14. INTEGRATION CONTRACT (migration 003)
+-- material_pages, question types/citations, quiz due dates, note anchors,
+-- and the CS-AI3010 demo course. Included rather than copied so a fresh
+-- install and a migrated database can never drift apart.
+-- ============================================================
+\ir migrations/003_integration.sql
 
 -- ============================================================
 -- Kiểm tra nhanh sau khi chạy:

@@ -1,0 +1,16 @@
+<svg width="64" height="64" viewBox="0 0 940 820" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Top-Left Red Triangle Accent -->
+  <polygon points="50,0 250,190 50,380" fill="#C8232C" />
+
+  <!-- Left Blue Wing (4 Facets) -->
+  <polygon points="75,410 275,210 275,590" fill="#3B5C8F" />
+  <polygon points="275,210 475,410 275,590" fill="#233E6B" />
+  <polygon points="75,410 275,590 475,790" fill="#2B497B" />
+  <polygon points="275,590 475,410 475,790" fill="#172B4D" />
+
+  <!-- Right Blue Wing (4 Facets) -->
+  <polygon points="475,410 675,210 675,590" fill="#233E6B" />
+  <polygon points="675,210 875,10 675,590" fill="#3B5C8F" />
+  <polygon points="475,410 675,590 475,790" fill="#172B4D" />
+  <polygon points="675,590 875,10 475,790" fill="#2B497B" />
+</svg>

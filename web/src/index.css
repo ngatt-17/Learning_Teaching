@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --color-vinuni-navy: #1E3A6E;
+  --color-vinuni-navy-dark: #14274E;
+  --color-vinuni-navy-light: #2E5496;
+  --color-vinuni-navy-subtle: #EDF2FA;
+  --color-vinuni-red: #C8232C;
+  --color-vinuni-red-light: #FDF2F2;
+  --radius-DEFAULT: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background: #f8fafc;
+}

@@ -401,10 +401,15 @@ def gen_from_material(
     difficulty: Difficulty = "medium",
     question_type: str = "mixed",
     count: int = 3,
+    material: dict | None = None,
 ) -> QuizDraft:
-    """Giảng viên sinh quiz từ học liệu đã duyệt. Trả về QuizDraft ở trạng thái 'draft'."""
+    """
+    Giảng viên sinh quiz từ học liệu đã duyệt. Trả về QuizDraft ở trạng thái 'draft'.
+    `material`: học liệu lấy từ Platform API ({title, approved_for_ai, chunks}); khi None
+    dùng fixtures offline (run_quiz_demo.py).
+    """
     count = min(count, MAX_QUIZ_COUNT)
-    mat = get_material(material_id)
+    mat = material if material is not None else get_material(material_id)
     if not mat:
         raise ValueError(f"Material '{material_id}' not found in fixtures.")
     if not mat.get("approved_for_ai"):
@@ -426,7 +431,7 @@ def gen_from_material(
     context = "\n\n".join(
         f"[Page {c['page']}] {c['text']}" for c in mat["chunks"]
     )
-    source_file = f"{material_id}.pdf"
+    source_file = mat.get("title") or f"{material_id}.pdf"
     prompt = _build_quiz_prompt(context, count, requested_types, difficulty, topic, source_file)
     questions = _call_llm_for_quiz(prompt, default_source=source_file, target_qtype=question_type)
 

@@ -20,7 +20,7 @@ load_dotenv()
 app = FastAPI(
     title="CECS AI Learning Hub — Platform & Access API",
     description="Core backend platform providing Email OTP authentication, server-enforced role access, and PostgreSQL RLS-backed private notes.",
-    version="1.0.0-day02"
+    version="1.1.0-integration"
 )
 
 # CORS configuration for frontend
@@ -29,6 +29,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000", "http://127.0.0.1:3000", "http://0.0.0.0:3000",
         "http://localhost:5173", "http://127.0.0.1:5173",
+        "http://localhost:4173", "http://127.0.0.1:4173",
         "http://localhost:8000", "http://127.0.0.1:8000",
     ],
     allow_credentials=True,
@@ -71,7 +72,7 @@ def health_check():
         "status": "healthy",
         "service": "CECS AI Learning Hub — Platform API",
         "database": "PostgreSQL with Row-Level Security",
-        "day": "Day 2 Foundation"
+        "day": "Integration (Day 3)"
     }
 
 if __name__ == "__main__":
