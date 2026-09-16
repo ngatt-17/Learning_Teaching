@@ -26,7 +26,7 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
-from config import XKIRO_API_KEY, XKIRO_BASE_URL, DEFAULT_MODEL, MAX_QUIZ_COUNT
+from config import LLM_API_KEY, LLM_BASE_URL, DEFAULT_MODEL, MAX_QUIZ_COUNT
 from fixtures.sample_material import get_material
 
 
@@ -70,8 +70,8 @@ class QuizDraft(TypedDict, total=False):
 _DRAFT_STORE: dict[str, QuizDraft] = {}
 
 
-# ── OpenAI client ─────────────────────────────────────────────────────────
-_client = OpenAI(api_key=XKIRO_API_KEY, base_url=XKIRO_BASE_URL)
+# ── OpenAI-compatible LLM client ──────────────────────────────────────────
+_client = OpenAI(api_key=LLM_API_KEY or "dummy_test_key", base_url=LLM_BASE_URL if LLM_BASE_URL else None)
 
 
 # ── Prompt Builder ─────────────────────────────────────────────────────────
@@ -276,7 +276,7 @@ def _call_llm_for_quiz(
     default_source: str = "CourseMaterial.pdf",
     target_qtype: str = "",
 ) -> list[Question]:
-    """Gọi LLM qua xkiro (hỗ trợ DeepSeek) và parse kết quả JSON."""
+    """Gọi LLM engine chuẩn hóa và parse kết quả JSON."""
     raw = ""
     try:
         completion = _client.chat.completions.create(
@@ -297,17 +297,21 @@ def _call_llm_for_quiz(
             str(e),
             exc_info=True,
         )
+        fb_type = target_qtype if target_qtype in ("single_choice", "multiple_choice", "short_answer", "mcq", "short") else "single_choice"
+        fb_opts = [] if fb_type in ("short_answer", "short") else ["Retry", "Check Connection", "Check API Key", "Contact Admin"]
+        fb_ans = "" if fb_type in ("short_answer", "short") else "Retry"
+        fb_correct = "" if fb_type in ("short_answer", "short") else ([0] if fb_type == "multiple_choice" else 0)
         return [
             {
                 "id": "q1",
-                "type": "single_choice",
+                "type": fb_type,
                 "topic": "API Error",
                 "question": f"[Quiz generation failed — API call error: {type(e).__name__}]",
-                "options": ["Retry", "Check Connection", "Check API Key", "Contact Admin"],
-                "correct_answer": 0,
-                "answer": "Retry",
+                "options": fb_opts,
+                "correct_answer": fb_correct,
+                "answer": fb_ans,
                 "keywords": [],
-                "explanation": f"API error from {DEFAULT_MODEL}: {str(e)}",
+                "explanation": f"API call error: {str(e)}",
                 "citation": {"source_file": default_source, "page": 1, "evidence_snippet": "API Error fallback"},
                 "source_page": 1,
             }
@@ -337,15 +341,19 @@ def _call_llm_for_quiz(
             raw,
             exc_info=True,
         )
+        fb_type = target_qtype if target_qtype in ("single_choice", "multiple_choice", "short_answer", "mcq", "short") else "single_choice"
+        fb_opts = [] if fb_type in ("short_answer", "short") else ["Retry", "Check JSON Format", "Check Output", "Contact Admin"]
+        fb_ans = "" if fb_type in ("short_answer", "short") else "Retry"
+        fb_correct = "" if fb_type in ("short_answer", "short") else ([0] if fb_type == "multiple_choice" else 0)
         return [
             {
                 "id": "q1",
-                "type": "single_choice",
+                "type": fb_type,
                 "topic": "Parse Error",
                 "question": "[Quiz generation failed — LLM output could not be parsed as valid JSON]",
-                "options": ["Retry", "Check JSON Format", "Check Output", "Contact Admin"],
-                "correct_answer": 0,
-                "answer": "Retry",
+                "options": fb_opts,
+                "correct_answer": fb_correct,
+                "answer": fb_ans,
                 "keywords": [],
                 "explanation": f"JSON parsing failed: {str(e)}",
                 "citation": {"source_file": default_source, "page": 1, "evidence_snippet": "Parse Error fallback"},
@@ -358,15 +366,19 @@ def _call_llm_for_quiz(
             str(e),
             exc_info=True,
         )
+        fb_type = target_qtype if target_qtype in ("single_choice", "multiple_choice", "short_answer", "mcq", "short") else "single_choice"
+        fb_opts = [] if fb_type in ("short_answer", "short") else ["Retry", "Check System", "Check Logs", "Contact Admin"]
+        fb_ans = "" if fb_type in ("short_answer", "short") else "Retry"
+        fb_correct = "" if fb_type in ("short_answer", "short") else ([0] if fb_type == "multiple_choice" else 0)
         return [
             {
                 "id": "q1",
-                "type": "single_choice",
+                "type": fb_type,
                 "topic": "Unexpected Error",
                 "question": f"[Quiz generation failed — unexpected error: {str(e)}]",
-                "options": ["Retry", "Check System", "Check Logs", "Contact Admin"],
-                "correct_answer": 0,
-                "answer": "Retry",
+                "options": fb_opts,
+                "correct_answer": fb_correct,
+                "answer": fb_ans,
                 "keywords": [],
                 "explanation": str(e),
                 "citation": {"source_file": default_source, "page": 1, "evidence_snippet": "Error fallback"},

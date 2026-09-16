@@ -16,6 +16,6 @@ def health_check():
         "mocked": {
             "auth": True,
             "file_parsing": True,
-            "ai_calls": False,  # xkiro API thật
+            "ai_calls": False,  # LLM API live
         },
     }

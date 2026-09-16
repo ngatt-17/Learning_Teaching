@@ -1,7 +1,7 @@
 # Team 3 (AI & Quality Module) — CECS AI Learning Hub
 
 **Day 2 Standalone Service** | Port: `8001` | Branch: `feature/ngatt-17-ai-quality-day02`  
-**AI Engine:** DeepSeek (`deepseek/deepseek-v4.1-flash:free` qua xKiro API)
+**AI Engine:** Chuẩn OpenAI-compatible API (Cấu hình linh hoạt qua biến môi trường .env)
 
 ---
 
@@ -126,10 +126,11 @@ Theo thỏa thuận API Contract của nhóm, hàm `gen_quiz_standard()` và end
 ---
 
 ## ⚙️ Cấu hình môi trường (.env)
-
-Tất cả đã cấu hình sẵn trong `src/ai/.env` (được bảo vệ trong `.gitignore`):
+ 
+Cấu hình mẫu trong `src/ai/.env.example` (file `.env` thực tế được bảo vệ trong `.gitignore`):
 ```env
-XKIRO_API_KEY=sk-xt-db53d6945bf9541ae208288e5bc6b8868261af803df2c6e0
-MODEL_NAME=deepseek/deepseek-v4.1-flash:free
+LLM_API_KEY=your-api-key-here
+LLM_BASE_URL=https://api.your-provider.com/v1
+LLM_MODEL=your-model-name-here
 AI_SERVICE_PORT=8001
 ```

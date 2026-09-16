@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import TypedDict, Literal
 from openai import OpenAI
 
-from config import XKIRO_API_KEY, XKIRO_BASE_URL, DEFAULT_MODEL, TOP_K
+from config import LLM_API_KEY, LLM_BASE_URL, DEFAULT_MODEL, TOP_K
 from retriever import retrieve, RetrievedChunk
 
 # Ngưỡng tối thiểu — chunks dưới ngưỡng này bị coi là không liên quan
@@ -32,7 +32,7 @@ class RAGResponse(TypedDict):
 
 
 # ── Client ────────────────────────────────────────────────────────────────
-_client = OpenAI(api_key=XKIRO_API_KEY, base_url=XKIRO_BASE_URL)
+_client = OpenAI(api_key=LLM_API_KEY or "dummy_test_key", base_url=LLM_BASE_URL if LLM_BASE_URL else None)
 
 # ── Prompts ───────────────────────────────────────────────────────────────
 _SYSTEM_PROMPT = """You are an academic tutor for VinUniversity's CECS AI Learning Hub.
