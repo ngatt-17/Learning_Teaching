@@ -46,6 +46,10 @@ export interface QuizItem {
   statusText: string;
   isComprehensive?: boolean;
   targetChapters?: string[];
+  dueDate?: string;
+  hasTimeLimit?: boolean;
+  timeLimitMinutes?: number;
+  displayMode?: 'all' | 'one-by-one';
 }
 
 export interface ChapterItem {
@@ -86,6 +90,10 @@ export const CourseDetailView: React.FC<CourseDetailViewProps> = ({ course, onBa
       statusText: 'Đã phát hành • 52/74 sinh viên đã hoàn thành',
       isComprehensive: true,
       targetChapters: ['Chương 1: Giới thiệu về trí tuệ nhân tạo', 'Chương 2: Tìm kiếm mù'],
+      dueDate: '2026-09-24 23:59',
+      hasTimeLimit: true,
+      timeLimitMinutes: 20,
+      displayMode: 'one-by-one',
     },
   ]);
 
@@ -120,6 +128,10 @@ export const CourseDetailView: React.FC<CourseDetailViewProps> = ({ course, onBa
           totalStudents: 74,
           averageScore: 8.4,
           statusText: 'Câu hỏi quiz đã được duyệt • 68/74 sinh viên đã hoàn thành',
+          dueDate: '2026-09-20 23:59',
+          hasTimeLimit: true,
+          timeLimitMinutes: 15,
+          displayMode: 'one-by-one',
         },
       ],
     },
@@ -201,6 +213,10 @@ export const CourseDetailView: React.FC<CourseDetailViewProps> = ({ course, onBa
     selectedSlides: string[];
     isComprehensive?: boolean;
     targetChapterTitles?: string[];
+    dueDate?: string;
+    hasTimeLimit?: boolean;
+    timeLimitMinutes?: number;
+    displayMode?: 'all' | 'one-by-one';
   }) => {
     if (quizData.isComprehensive) {
       const newQuiz: QuizItem = {
@@ -215,6 +231,10 @@ export const CourseDetailView: React.FC<CourseDetailViewProps> = ({ course, onBa
         statusText: `Mới phát hành (${quizData.count} câu) • 0/${course.enrolledStudents || 74} sinh viên hoàn thành`,
         isComprehensive: true,
         targetChapters: quizData.targetChapterTitles,
+        dueDate: quizData.dueDate ? quizData.dueDate.replace('T', ' ') : '23:59 24/09/2026',
+        hasTimeLimit: quizData.hasTimeLimit,
+        timeLimitMinutes: quizData.timeLimitMinutes,
+        displayMode: quizData.displayMode || 'one-by-one',
       };
 
       setComprehensiveQuizzes((prev) => [newQuiz, ...prev]);
@@ -235,6 +255,10 @@ export const CourseDetailView: React.FC<CourseDetailViewProps> = ({ course, onBa
               totalStudents: course.enrolledStudents,
               averageScore: 0,
               statusText: `Mới phát hành (${quizData.count} câu) • 0/${course.enrolledStudents} sinh viên hoàn thành`,
+              dueDate: quizData.dueDate ? quizData.dueDate.replace('T', ' ') : '23:59 24/09/2026',
+              hasTimeLimit: quizData.hasTimeLimit,
+              timeLimitMinutes: quizData.timeLimitMinutes,
+              displayMode: quizData.displayMode || 'one-by-one',
             };
 
             return {
@@ -679,10 +703,23 @@ export const CourseDetailView: React.FC<CourseDetailViewProps> = ({ course, onBa
                                         {quiz.questionCount} câu
                                       </span>
                                     </div>
-                                    <p className="text-[11px] text-slate-500 mt-0.5 ml-7">
-                                      {quiz.statusText}
-                                      {quiz.averageScore > 0 && ` • Điểm TB: ${quiz.averageScore}/10`}
-                                    </p>
+                                    <div className="flex items-center gap-2 mt-1.5 ml-7 flex-wrap text-[10.5px]">
+                                      <span className="text-slate-500">{quiz.statusText}</span>
+                                      {quiz.averageScore > 0 && (
+                                        <span className="font-semibold text-slate-700">
+                                          • Điểm TB: {quiz.averageScore}/10
+                                        </span>
+                                      )}
+                                      <span className="px-2 py-0.5 rounded bg-blue-50 text-[#1E3A6E] font-medium border border-blue-200/60">
+                                        📅 Hạn: {quiz.dueDate ? quiz.dueDate.replace('T', ' ') : '23:59 20/09/2026'}
+                                      </span>
+                                      <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-medium border border-amber-200/60">
+                                        ⏱️ {quiz.hasTimeLimit !== false ? `${quiz.timeLimitMinutes || 15} phút` : 'Tự do (Không giới hạn)'}
+                                      </span>
+                                      <span className="px-2 py-0.5 rounded bg-purple-50 text-purple-800 font-medium border border-purple-200/60">
+                                        📑 {quiz.displayMode === 'all' ? 'Hiện tất cả' : 'Hiện từng câu'}
+                                      </span>
+                                    </div>
                                   </div>
 
                                   <button
@@ -804,12 +841,23 @@ export const CourseDetailView: React.FC<CourseDetailViewProps> = ({ course, onBa
                               </p>
                             )}
 
-                            <p className="text-xs text-slate-500">
-                              {quiz.statusText} • Điểm trung bình:{' '}
-                              <span className="font-semibold text-slate-700">
-                                {quiz.averageScore > 0 ? `${quiz.averageScore}/10` : 'Đang cập nhật'}
+                            <div className="flex items-center gap-2 flex-wrap text-xs pt-1">
+                              <span className="text-slate-500">
+                                {quiz.statusText} • Điểm trung bình:{' '}
+                                <span className="font-semibold text-slate-700">
+                                  {quiz.averageScore > 0 ? `${quiz.averageScore}/10` : 'Đang cập nhật'}
+                                </span>
                               </span>
-                            </p>
+                              <span className="px-2 py-0.5 rounded text-[10.5px] bg-blue-50 text-[#1E3A6E] font-medium border border-blue-200/60">
+                                📅 Hạn: {quiz.dueDate ? quiz.dueDate.replace('T', ' ') : '23:59 24/09/2026'}
+                              </span>
+                              <span className="px-2 py-0.5 rounded text-[10.5px] bg-amber-50 text-amber-800 font-medium border border-amber-200/60">
+                                ⏱️ {quiz.hasTimeLimit !== false ? `${quiz.timeLimitMinutes || 20} phút` : 'Tự do (Không giới hạn)'}
+                              </span>
+                              <span className="px-2 py-0.5 rounded text-[10.5px] bg-purple-50 text-purple-800 font-medium border border-purple-200/60">
+                                📑 {quiz.displayMode === 'all' ? 'Hiện tất cả câu' : 'Hiện từng câu một'}
+                              </span>
+                            </div>
                           </div>
 
                           <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ArrowLeft, Home, FileText, HelpCircle, Brain, Folder, MessageSquare } from 'lucide-react';
 import type { Course } from './CourseCard';
 import { CourseContentTabs } from './CourseContentTabs';
+import { StudentQuizExamView } from './StudentQuizExamView';
 
 interface CourseDetailProps {
   course: Course;
@@ -12,6 +13,24 @@ export type SubTab = 'Home' | 'Assignments' | 'Quizzes' | 'Active Learning' | 'F
 
 export const CourseDetailView: React.FC<CourseDetailProps> = ({ course, onBack }) => {
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('Home');
+  const [activeExamQuiz, setActiveExamQuiz] = useState<{
+    title: string;
+    displayMode?: 'one-by-one' | 'all';
+    timeLimitMinutes?: number;
+    hasTimeLimit?: boolean;
+  } | null>(null);
+
+  if (activeExamQuiz) {
+    return (
+      <StudentQuizExamView
+        quizTitle={activeExamQuiz.title}
+        initialDisplayMode={activeExamQuiz.displayMode || 'one-by-one'}
+        timeLimitMinutes={activeExamQuiz.timeLimitMinutes || 15}
+        hasTimeLimit={activeExamQuiz.hasTimeLimit !== false}
+        onBack={() => setActiveExamQuiz(null)}
+      />
+    );
+  }
 
   const subNavs: { id: SubTab; label: string; icon: React.ReactNode }[] = [
     { id: 'Home', label: 'Home', icon: <Home size={18} /> },
@@ -67,7 +86,11 @@ export const CourseDetailView: React.FC<CourseDetailProps> = ({ course, onBack }
           </nav>
         </aside>
 
-        <CourseContentTabs course={course} activeSubTab={activeSubTab} />
+        <CourseContentTabs
+          course={course}
+          activeSubTab={activeSubTab}
+          onOpenExamQuiz={(cfg) => setActiveExamQuiz(cfg)}
+        />
       </div>
     </div>
   );

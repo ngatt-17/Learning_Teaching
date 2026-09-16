@@ -8,7 +8,7 @@ interface CourseHomeTabProps {
   onOpenQuiz?: (quizTitle: string) => void;
 }
 
-export const CourseHomeTab: React.FC<CourseHomeTabProps> = ({ course, onOpenQuiz }) => {
+export const CourseHomeTab: React.FC<CourseHomeTabProps> = ({ course: _course, onOpenQuiz }) => {
   const [selectedViewerItem, setSelectedViewerItem] = useState<{
     item: ViewerItem;
     module: ViewerModule;
@@ -75,13 +75,12 @@ export const CourseHomeTab: React.FC<CourseHomeTabProps> = ({ course, onOpenQuiz
           initialModule={selectedViewerItem.module}
           allModules={modules}
           onClose={() => setSelectedViewerItem(null)}
+          onOpenQuiz={(title) => {
+            setSelectedViewerItem(null);
+            if (onOpenQuiz) onOpenQuiz(title);
+          }}
         />
       )}
-
-      <div className="border-b border-slate-200 pb-3 mb-4">
-        <h2 className="text-xl font-bold text-slate-800">{course.name}</h2>
-        <p className="text-sm text-slate-500 mt-0.5">{course.department} • Code: {course.code}</p>
-      </div>
 
       <div className="space-y-4">
         {modules.map((mod) => {
@@ -101,12 +100,13 @@ export const CourseHomeTab: React.FC<CourseHomeTabProps> = ({ course, onOpenQuiz
               </button>
 
               {isExpanded && (
-                <div className="divide-y divide-slate-100 bg-white">
+                <div className="bg-white">
                   {mod.items.map((item) => (
                     <div
                       key={item.id}
                       onClick={() => handleItemClick(item, mod)}
-                      className="flex items-center gap-3.5 px-4 py-3 hover:bg-slate-50 border-l-4 border-emerald-600 transition-colors cursor-pointer"
+                      style={{ borderLeft: '4px solid #059669' }}
+                      className="flex items-center gap-3.5 px-4 py-3 hover:bg-slate-50/80 transition-colors cursor-pointer"
                     >
                       {item.type === 'file' ? (
                         <Paperclip size={18} className="text-slate-500 shrink-0" />

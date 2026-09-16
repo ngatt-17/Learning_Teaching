@@ -20,6 +20,9 @@ import {
   FileUp,
   ChevronDown,
   BookOpen,
+  Clock,
+  Calendar,
+  Eye,
 } from 'lucide-react';
 
 interface Question {
@@ -59,6 +62,10 @@ interface CreateQuizViewProps {
     selectedSlides: string[];
     isComprehensive?: boolean;
     targetChapterTitles?: string[];
+    dueDate?: string;
+    hasTimeLimit: boolean;
+    timeLimitMinutes?: number;
+    displayMode: 'all' | 'one-by-one';
   }) => void;
 }
 
@@ -99,6 +106,16 @@ export const CreateQuizView: React.FC<CreateQuizViewProps> = ({
     }
     return `Quiz: ${chapterTitle} (${courseCode})`;
   });
+
+  // Hạn làm bài (Due Date & Time)
+  const [dueDate, setDueDate] = useState<string>('2026-09-24T23:59');
+
+  // Thời gian làm bài tối đa (Time Limit: true = có giới hạn, false = không giới hạn)
+  const [hasTimeLimit, setHasTimeLimit] = useState<boolean>(true);
+  const [timeLimitMinutes, setTimeLimitMinutes] = useState<number>(15);
+
+  // Chế độ hiển thị câu hỏi: 'one-by-one' (từng câu một) | 'all' (tất cả câu hỏi cùng lúc)
+  const [displayMode, setDisplayMode] = useState<'all' | 'one-by-one'>('one-by-one');
 
   // Question count decided by teacher: default 10, max 100
   const [questionCount, setQuestionCount] = useState<number>(10);
@@ -683,6 +700,10 @@ export const CreateQuizView: React.FC<CreateQuizViewProps> = ({
       selectedSlides: selectedSlideNames,
       isComprehensive: isComprehensiveMode,
       targetChapterTitles,
+      dueDate,
+      hasTimeLimit,
+      timeLimitMinutes: hasTimeLimit ? timeLimitMinutes : undefined,
+      displayMode,
     });
   };
 
@@ -809,6 +830,227 @@ export const CreateQuizView: React.FC<CreateQuizViewProps> = ({
               className="w-full font-bold text-sm text-slate-800 p-2.5 rounded-lg border border-slate-200 focus:border-[#1E3A6E] focus:outline-none"
               placeholder="Nhập tên bài tập..."
             />
+          </div>
+
+          {/* QUIZ TIMING & DISPLAY SETTINGS (Hạn nộp, Thời gian tối đa & Chế độ hiển thị) */}
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-blue-50 text-[#1E3A6E] rounded-lg">
+                  <Clock size={16} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">
+                    Quy định thời gian & Chế độ hiển thị cho học sinh
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Cấu hình thời hạn nộp bài, thời lượng làm bài tối đa và cách thức hiển thị câu hỏi trên giao diện của người học.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+              {/* Cột 1: Hạn làm bài (Due Date) */}
+              <div className="space-y-2 p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between font-bold text-slate-800 mb-1">
+                    <span className="flex items-center gap-1.5">
+                      <Calendar size={14} className="text-[#C8232C]" />
+                      <span>Hạn làm bài (Deadline):</span>
+                    </span>
+                  </div>
+                  <input
+                    type="datetime-local"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="w-full p-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:border-[#1E3A6E]"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1 pt-1 flex-wrap text-[10px]">
+                  <span className="text-slate-400 font-medium">Đặt nhanh:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 1);
+                      setDueDate(d.toISOString().slice(0, 16));
+                    }}
+                    className="px-1.5 py-0.5 bg-white hover:bg-slate-200 border border-slate-200 rounded font-semibold cursor-pointer text-slate-600"
+                  >
+                    +1 ngày
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 3);
+                      setDueDate(d.toISOString().slice(0, 16));
+                    }}
+                    className="px-1.5 py-0.5 bg-white hover:bg-slate-200 border border-slate-200 rounded font-semibold cursor-pointer text-slate-600"
+                  >
+                    +3 ngày
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 7);
+                      setDueDate(d.toISOString().slice(0, 16));
+                    }}
+                    className="px-1.5 py-0.5 bg-white hover:bg-slate-200 border border-slate-200 rounded font-semibold cursor-pointer text-slate-600"
+                  >
+                    +1 tuần
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 14);
+                      setDueDate(d.toISOString().slice(0, 16));
+                    }}
+                    className="px-1.5 py-0.5 bg-white hover:bg-slate-200 border border-slate-200 rounded font-semibold cursor-pointer text-slate-600"
+                  >
+                    +2 tuần
+                  </button>
+                </div>
+              </div>
+
+              {/* Cột 2: Thời gian làm bài tối đa (Time Limit) */}
+              <div className="space-y-2 p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between font-bold text-slate-800 mb-1">
+                    <span className="flex items-center gap-1.5">
+                      <Clock size={14} className="text-[#1E3A6E]" />
+                      <span>Thời gian làm bài tối đa:</span>
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-3 my-1.5">
+                    <label className="flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700">
+                      <input
+                        type="radio"
+                        name="hasTimeLimit"
+                        checked={hasTimeLimit}
+                        onChange={() => setHasTimeLimit(true)}
+                        className="text-[#1E3A6E] focus:ring-[#1E3A6E]"
+                      />
+                      <span>Có giới hạn</span>
+                    </label>
+
+                    <label className="flex items-center gap-1.5 cursor-pointer font-semibold text-slate-700">
+                      <input
+                        type="radio"
+                        name="hasTimeLimit"
+                        checked={!hasTimeLimit}
+                        onChange={() => setHasTimeLimit(false)}
+                        className="text-[#1E3A6E] focus:ring-[#1E3A6E]"
+                      />
+                      <span>Không giới hạn</span>
+                    </label>
+                  </div>
+
+                  {hasTimeLimit ? (
+                    <div className="flex items-center gap-2 mt-1">
+                      <input
+                        type="number"
+                        min={1}
+                        max={180}
+                        value={timeLimitMinutes}
+                        onChange={(e) => setTimeLimitMinutes(Math.max(1, Number(e.target.value)))}
+                        className="w-20 p-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-800 text-center focus:outline-none focus:border-[#1E3A6E]"
+                      />
+                      <span className="font-semibold text-slate-600 text-xs">phút</span>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-emerald-700 font-medium mt-1 bg-emerald-50 p-1.5 rounded border border-emerald-200">
+                      ✓ Học sinh được làm bài tự do không áp lực thời gian.
+                    </p>
+                  )}
+                </div>
+
+                {hasTimeLimit && (
+                  <div className="flex items-center gap-1 pt-1 flex-wrap text-[10px]">
+                    <span className="text-slate-400 font-medium">Mốc phổ biến:</span>
+                    {[10, 15, 20, 30, 45, 60].map((mins) => (
+                      <button
+                        key={mins}
+                        type="button"
+                        onClick={() => setTimeLimitMinutes(mins)}
+                        className={`px-1.5 py-0.5 rounded font-semibold cursor-pointer border ${
+                          timeLimitMinutes === mins
+                            ? 'bg-[#1E3A6E] text-white border-[#1E3A6E]'
+                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-200'
+                        }`}
+                      >
+                        {mins}p
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Cột 3: Chế độ hiển thị câu hỏi (Display Mode) */}
+              <div className="space-y-2 p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between font-bold text-slate-800 mb-1">
+                    <span className="flex items-center gap-1.5">
+                      <Eye size={14} className="text-purple-700" />
+                      <span>Chế độ hiển thị câu hỏi:</span>
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 mt-2">
+                    <div
+                      onClick={() => setDisplayMode('one-by-one')}
+                      className={`p-2 rounded-lg border text-xs cursor-pointer transition-all flex items-start gap-2 ${
+                        displayMode === 'one-by-one'
+                          ? 'bg-blue-50/70 border-[#1E3A6E] text-slate-900 font-semibold shadow-2xs'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="displayMode"
+                        checked={displayMode === 'one-by-one'}
+                        onChange={() => setDisplayMode('one-by-one')}
+                        className="mt-0.5 text-[#1E3A6E]"
+                      />
+                      <div>
+                        <p className="font-bold text-xs text-[#1E3A6E]">Hiện từng câu hỏi một</p>
+                        <p className="text-[10px] text-slate-500 font-normal leading-tight mt-0.5">
+                          Có nút Trước/Tiếp theo và bảng danh sách câu hỏi điều hướng bên phải.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div
+                      onClick={() => setDisplayMode('all')}
+                      className={`p-2 rounded-lg border text-xs cursor-pointer transition-all flex items-start gap-2 ${
+                        displayMode === 'all'
+                          ? 'bg-blue-50/70 border-[#1E3A6E] text-slate-900 font-semibold shadow-2xs'
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="displayMode"
+                        checked={displayMode === 'all'}
+                        onChange={() => setDisplayMode('all')}
+                        className="mt-0.5 text-[#1E3A6E]"
+                      />
+                      <div>
+                        <p className="font-bold text-xs text-slate-800">Hiện toàn bộ câu hỏi cùng lúc</p>
+                        <p className="text-[10px] text-slate-500 font-normal leading-tight mt-0.5">
+                          Tất cả câu hỏi hiển thị dạng cuộn, học sinh có thể lướt xem nhanh.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* METHOD SELECTION TABS: AI GENERATE FROM SLIDE vs UPLOAD EXAM BANK PDF */}

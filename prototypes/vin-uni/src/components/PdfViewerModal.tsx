@@ -35,10 +35,11 @@ interface PdfViewerModalProps {
   initialModule: ViewerModule;
   allModules: ViewerModule[];
   onClose: () => void;
+  onOpenQuiz?: (quizTitle: string) => void;
 }
 
 export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
-  initialItem, initialModule, allModules: _allModules, onClose,
+  initialItem, initialModule, allModules: _allModules, onClose, onOpenQuiz,
 }) => {
   const [activeItem, setActiveItem] = useState<ViewerItem>(initialItem);
   const [activeModule] = useState<ViewerModule>(initialModule);
@@ -295,7 +296,18 @@ export const PdfViewerModal: React.FC<PdfViewerModalProps> = ({
 
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
               {currentItems.map((item) => (
-                <button key={item.id} onClick={() => setActiveItem(item)} className={`w-full text-left p-2.5 rounded-lg text-xs font-medium cursor-pointer transition-all flex items-start gap-2.5 ${activeItem.id === item.id ? 'bg-blue-50 border border-blue-200 text-[#1E3A6E] font-semibold' : 'text-slate-700 hover:bg-slate-50 border border-transparent'}`}>
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    if ((item.category === 'quiz' || item.type === 'quiz') && onOpenQuiz) {
+                      onClose();
+                      onOpenQuiz(item.title);
+                      return;
+                    }
+                    setActiveItem(item);
+                  }}
+                  className={`w-full text-left p-2.5 rounded-lg text-xs font-medium cursor-pointer transition-all flex items-start gap-2.5 ${activeItem.id === item.id ? 'bg-blue-50 border border-blue-200 text-[#1E3A6E] font-semibold' : 'text-slate-700 hover:bg-slate-50 border border-transparent'}`}
+                >
                   {item.category === 'quiz' ? <HelpCircle size={15} className="text-purple-600 shrink-0 mt-0.5" /> : item.category === 'document' ? <FileText size={15} className="text-emerald-600 shrink-0 mt-0.5" /> : <Presentation size={15} className="text-[#1E3A6E] shrink-0 mt-0.5" />}
                   <div>
                     <p className="line-clamp-2 leading-snug">{item.title}</p>

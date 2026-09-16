@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, X, Award, Lightbulb } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import type { Question } from './quizData';
 
 interface QuestionMatchingProps {

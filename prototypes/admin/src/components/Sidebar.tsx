@@ -22,14 +22,14 @@ interface SidebarItemProps {
 const SidebarItem: React.FC<SidebarItemProps> = ({ icon, label, active, onClick, badge }) => (
   <button
     onClick={onClick}
-    className={`w-full flex flex-col items-center justify-center py-2.5 px-1 transition-colors relative group ${
+    className={`w-full flex flex-col items-center justify-center py-2.5 px-1 transition-all relative group cursor-pointer ${
       active
-        ? 'bg-[#14274E] text-white border-l-4 border-[#C8232C]'
-        : 'text-slate-300 hover:bg-[#14274E]/60 hover:text-white'
+        ? 'bg-white text-[#1E3A6E] font-bold border-l-4 border-[#C8232C] shadow-xs'
+        : 'text-slate-300 hover:bg-white/10 hover:text-white'
     }`}
     title={label}
   >
-    <div className="mb-1 relative">
+    <div className={`mb-1 relative ${active ? 'text-[#1E3A6E]' : 'text-slate-300 group-hover:text-white'}`}>
       {icon}
       {badge !== undefined && badge > 0 && (
         <span className="absolute -top-1 -right-2.5 bg-[#C8232C] text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center border border-[#1E3A6E]">
@@ -103,9 +103,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Account Settings */}
         <SidebarItem
           icon={<Settings size={20} />}
-          label="acount setting"
-          active={activeTab === 'acount setting'}
-          onClick={() => setActiveTab('acount setting')}
+          label="Account"
+          active={activeTab === 'Account'}
+          onClick={() => setActiveTab('Account')}
         />
 
         {/* User Card Box (System Admin) */}
