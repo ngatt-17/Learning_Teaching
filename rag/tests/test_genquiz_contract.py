@@ -169,3 +169,55 @@ def test_03_short_answer_json_structure(cs101_content):
     assert citation is not None
     assert isinstance(citation.get("page"), int) and citation.get("page") >= 1, "Page phải là số nguyên >= 1"
     assert citation.get("evidence_snippet")
+
+
+def test_04_fallback_preserves_target_qtype(cs101_content):
+    """Test 4: Kiểm chứng khi LLM gặp sự cố (API error hoặc parse JSON error),
+    cơ chế fallback phải bảo toàn đúng target_qtype và định dạng options."""
+    # 1. Giả lập lỗi ném Exception từ LLM client
+    with patch.object(qg._client.chat.completions, "create", side_effect=Exception("Simulated LLM network timeout")):
+        # Test A: Fallback cho short_answer
+        res_short = qg.gen_quiz_standard(
+            lesson_content=cs101_content,
+            topic="Test Fallback",
+            num_questions=1,
+            types=["short_answer"],
+            source_file="Lecture01.pdf",
+            lesson_id="test-fb-short",
+        )
+        assert len(res_short["questions"]) == 1
+        q_short = res_short["questions"][0]
+        assert q_short["type"] == "short_answer", f"Expected short_answer, got {q_short['type']}"
+        assert q_short["options"] == [], "Short answer fallback options phải rỗng"
+
+        # Test B: Fallback cho multiple_choice
+        res_multi = qg.gen_quiz_standard(
+            lesson_content=cs101_content,
+            topic="Test Fallback",
+            num_questions=1,
+            types=["multiple_choice"],
+            source_file="Lecture01.pdf",
+            lesson_id="test-fb-multi",
+        )
+        assert len(res_multi["questions"]) == 1
+        q_multi = res_multi["questions"][0]
+        assert q_multi["type"] == "multiple_choice", f"Expected multiple_choice, got {q_multi['type']}"
+        assert isinstance(q_multi["correct_answer"], list), "Multiple choice correct_answer phải là list[int]"
+
+        # Test C: Fallback cho single_choice
+        res_single = qg.gen_quiz_standard(
+            lesson_content=cs101_content,
+            topic="Test Fallback",
+            num_questions=1,
+            types=["single_choice"],
+            source_file="Lecture01.pdf",
+            lesson_id="test-fb-single",
+        )
+        assert len(res_single["questions"]) == 1
+        q_single = res_single["questions"][0]
+        assert q_single["type"] == "single_choice", f"Expected single_choice, got {q_single['type']}"
+        assert isinstance(q_single["correct_answer"], int), "Single choice correct_answer phải là int"
+
+    # 2. Kiểm tra alias hàm tương thích với tài liệu báo cáo
+    assert callable(qg.generate_quiz_from_material), "generate_quiz_from_material alias must be callable"
+    assert callable(qg.publish_quiz_draft), "publish_quiz_draft alias must be callable"

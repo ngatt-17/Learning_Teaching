@@ -307,16 +307,19 @@ def _call_llm_for_quiz(
             str(e),
             exc_info=True,
         )
+        fb_type = target_qtype if target_qtype in ("single_choice", "multiple_choice", "short_answer", "mcq", "truefalse", "short") else "single_choice"
+        fb_opts = [] if fb_type in ("short_answer", "short") else ["Retry", "Check Connection", "Check API Key", "Contact Admin"]
+        fb_ans = [0] if fb_type in ("multiple_choice",) else (0 if fb_type in ("single_choice", "mcq", "truefalse") else "Retry")
         return [
             {
                 "id": "q1",
-                "type": "single_choice",
+                "type": fb_type,
                 "topic": "API Error",
                 "question": f"[Quiz generation failed — API call error: {type(e).__name__}]",
-                "options": ["Retry", "Check Connection", "Check API Key", "Contact Admin"],
-                "correct_answer": 0,
+                "options": fb_opts,
+                "correct_answer": fb_ans,
                 "answer": "Retry",
-                "keywords": [],
+                "keywords": [] if fb_type not in ("short_answer", "short") else ["Retry"],
                 "explanation": f"API call error: {str(e)}",
                 "citation": {"source_file": default_source, "page": 1, "evidence_snippet": "API Error fallback"},
                 "source_page": 1,
@@ -347,16 +350,19 @@ def _call_llm_for_quiz(
             raw,
             exc_info=True,
         )
+        fb_type = target_qtype if target_qtype in ("single_choice", "multiple_choice", "short_answer", "mcq", "truefalse", "short") else "single_choice"
+        fb_opts = [] if fb_type in ("short_answer", "short") else ["Retry", "Check JSON Format", "Check Output", "Contact Admin"]
+        fb_ans = [0] if fb_type in ("multiple_choice",) else (0 if fb_type in ("single_choice", "mcq", "truefalse") else "Retry")
         return [
             {
                 "id": "q1",
-                "type": "single_choice",
+                "type": fb_type,
                 "topic": "Parse Error",
                 "question": "[Quiz generation failed — LLM output could not be parsed as valid JSON]",
-                "options": ["Retry", "Check JSON Format", "Check Output", "Contact Admin"],
-                "correct_answer": 0,
+                "options": fb_opts,
+                "correct_answer": fb_ans,
                 "answer": "Retry",
-                "keywords": [],
+                "keywords": [] if fb_type not in ("short_answer", "short") else ["Retry"],
                 "explanation": f"JSON parsing failed: {str(e)}",
                 "citation": {"source_file": default_source, "page": 1, "evidence_snippet": "Parse Error fallback"},
                 "source_page": 1,
@@ -368,16 +374,19 @@ def _call_llm_for_quiz(
             str(e),
             exc_info=True,
         )
+        fb_type = target_qtype if target_qtype in ("single_choice", "multiple_choice", "short_answer", "mcq", "truefalse", "short") else "single_choice"
+        fb_opts = [] if fb_type in ("short_answer", "short") else ["Retry", "Check System", "Check Logs", "Contact Admin"]
+        fb_ans = [0] if fb_type in ("multiple_choice",) else (0 if fb_type in ("single_choice", "mcq", "truefalse") else "Retry")
         return [
             {
                 "id": "q1",
-                "type": "single_choice",
+                "type": fb_type,
                 "topic": "Unexpected Error",
                 "question": f"[Quiz generation failed — unexpected error: {str(e)}]",
-                "options": ["Retry", "Check System", "Check Logs", "Contact Admin"],
-                "correct_answer": 0,
+                "options": fb_opts,
+                "correct_answer": fb_ans,
                 "answer": "Retry",
-                "keywords": [],
+                "keywords": [] if fb_type not in ("short_answer", "short") else ["Retry"],
                 "explanation": str(e),
                 "citation": {"source_file": default_source, "page": 1, "evidence_snippet": "Error fallback"},
                 "source_page": 1,
@@ -486,7 +495,8 @@ def gen_from_note(
     count = min(count, MAX_QUIZ_COUNT)
     requested_types = types or ["single_choice", "short_answer"]
     prompt = _build_quiz_prompt(note_content, count, requested_types, "medium", "Personal Notes", "PrivateStudyNotes")
-    return _call_llm_for_quiz(prompt, default_source="PrivateStudyNotes")
+    target_type = requested_types[0] if len(requested_types) == 1 else ""
+    return _call_llm_for_quiz(prompt, default_source="PrivateStudyNotes", target_qtype=target_type)
 
 
 # ── 4. API Contract Endpoint cho Team 1 & Team 2 (POST /api/ai/gen-quiz) ───
@@ -502,7 +512,8 @@ def gen_quiz_standard(
     num_questions = min(num_questions, MAX_QUIZ_COUNT)
     requested_types = types or ["single_choice", "multiple_choice", "short_answer"]
     prompt = _build_quiz_prompt(lesson_content, num_questions, requested_types, "medium", topic, source_file)
-    questions = _call_llm_for_quiz(prompt, default_source=source_file)
+    target_type = requested_types[0] if len(requested_types) == 1 else ""
+    questions = _call_llm_for_quiz(prompt, default_source=source_file, target_qtype=target_type)
 
     now_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     return {
@@ -529,3 +540,8 @@ def get_draft(draft_id: str) -> QuizDraft | None:
 
 def draft_exists(draft_id: str) -> bool:
     return draft_id in _DRAFT_STORE
+
+
+# ── Aliases for documentation & cross-module compatibility ──────────────────
+generate_quiz_from_material = gen_from_material
+publish_quiz_draft = publish_draft
