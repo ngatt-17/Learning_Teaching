@@ -26,7 +26,7 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
-from config import XKIRO_API_KEY, XKIRO_BASE_URL, DEFAULT_MODEL, MAX_QUIZ_COUNT
+from config import LLM_API_KEY, LLM_BASE_URL, DEFAULT_MODEL, MAX_QUIZ_COUNT
 from fixtures.sample_material import get_material
 
 
@@ -70,8 +70,8 @@ class QuizDraft(TypedDict, total=False):
 _DRAFT_STORE: dict[str, QuizDraft] = {}
 
 
-# ── OpenAI client ─────────────────────────────────────────────────────────
-_client = OpenAI(api_key=XKIRO_API_KEY or "dummy_test_key", base_url=XKIRO_BASE_URL)
+# ── OpenAI-compatible LLM client ──────────────────────────────────────────
+_client = OpenAI(api_key=LLM_API_KEY or "dummy_test_key", base_url=LLM_BASE_URL if LLM_BASE_URL else None)
 
 
 # ── Prompt Builder ─────────────────────────────────────────────────────────
@@ -276,7 +276,7 @@ def _call_llm_for_quiz(
     default_source: str = "CourseMaterial.pdf",
     target_qtype: str = "",
 ) -> list[Question]:
-    """Gọi LLM qua xkiro (hỗ trợ DeepSeek) và parse kết quả JSON."""
+    """Gọi LLM engine chuẩn hóa và parse kết quả JSON."""
     raw = ""
     try:
         completion = _client.chat.completions.create(
@@ -307,7 +307,7 @@ def _call_llm_for_quiz(
                 "correct_answer": 0,
                 "answer": "Retry",
                 "keywords": [],
-                "explanation": f"API error from {DEFAULT_MODEL}: {str(e)}",
+                "explanation": f"API call error: {str(e)}",
                 "citation": {"source_file": default_source, "page": 1, "evidence_snippet": "API Error fallback"},
                 "source_page": 1,
             }

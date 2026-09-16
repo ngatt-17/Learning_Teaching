@@ -1,7 +1,7 @@
 # Team 3 (AI & Quality Module) — CECS AI Learning Hub
 
-**Day 2 Standalone Service** | Port: `8001` | Branch: `feature/ngatt-17-ai-quality-day02`  
-**AI Engine:** DeepSeek (`deepseek/deepseek-v4.1-flash:free` qua xKiro API)
+**Day 2 Standalone Service** | Port: `8001` | Branch: `feature/TinNguyenn-rag-day02`  
+**AI Engine:** OpenAI-compatible LLM Engine (Cấu hình qua biến môi trường .env)
 
 ---
 
@@ -10,45 +10,47 @@
 * **Thành viên A (Nga - `ngatt-17`):**
   - Phụ trách chính: **`GenQuiz` (Hệ thống tạo bài tập tự động 3 dạng)**.
   - Các file chính:
-    - [`quiz_generator.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/src/ai/quiz_generator.py): Lõi sinh đề từ slide, ngân hàng đề và ghi chú cá nhân; chuẩn hóa JSON đầu ra.
-    - [`run_quiz_demo.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/src/ai/run_quiz_demo.py): Script chạy thử demo độc lập in ra màn hình cực kỳ trực quan.
-    - [`sample_lecture_cs101.txt`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/src/ai/sample_lecture_cs101.txt): Slide bài giảng mẫu CS101 về C/Pointers để chạy thử nghiệm.
-    - [`routes/quiz_routes.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/src/ai/routes/quiz_routes.py): Router cung cấp các API endpoint (bao gồm `POST /api/ai/gen-quiz` theo contract).
-    - [`tests/test_genquiz_contract.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/src/ai/tests/test_genquiz_contract.py): Bộ 3 bài test kiểm chứng JSON đầu ra của 3 dạng câu hỏi.
+    - [`quiz_generator.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/rag/quiz_generator.py): Lõi sinh đề từ slide, ngân hàng đề và ghi chú cá nhân; chuẩn hóa JSON đầu ra.
+    - [`run_quiz_demo.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/rag/run_quiz_demo.py): Script chạy thử demo độc lập in ra màn hình cực kỳ trực quan.
+    - [`sample_lecture_cs101.txt`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/rag/sample_lecture_cs101.txt): Slide bài giảng mẫu CS101 về C/Pointers để chạy thử nghiệm.
+    - [`routes/quiz_routes.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/rag/routes/quiz_routes.py): Router cung cấp các API endpoint (bao gồm `POST /api/ai/gen-quiz` theo contract).
+    - [`tests/test_genquiz_contract.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/rag/tests/test_genquiz_contract.py): Bộ 3 bài test kiểm chứng JSON đầu ra của 3 dạng câu hỏi.
 * **Thành viên B (Tin - `TinNguyenn`):**
   - Phụ trách chính: **`Grounded Chat (RAG)`** & **`Phân tích Năng lực Mạnh/Yếu`**.
   - Các file liên quan:
-    - [`chat_rag.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/src/ai/chat_rag.py): Luồng hỏi đáp bám sát slide có trích dẫn, từ chối khi thiếu chứng cứ ("Tutor, Not Solver").
-    - [`retriever.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/src/ai/retriever.py): Bộ lọc tài liệu đã duyệt (`status='approved'`), chặn tài liệu `draft`.
-    - [`routes/chat_routes.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/src/ai/routes/chat_routes.py): Endpoint hỏi đáp cho sinh viên (`POST /courses/{course_id}/chat`).
+    - [`grounded_chat.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/rag/grounded_chat.py): Luồng hỏi đáp bám sát slide có trích dẫn, 4 rào chắn bảo vệ ("Tutor, Not Solver").
+    - [`chat_rag.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/rag/chat_rag.py): RAG pipeline gọi LLM kèm trích dẫn số trang.
+    - [`retriever.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/rag/retriever.py): Bộ lọc tài liệu đã duyệt (`status='approved'`), chặn tài liệu `draft`.
+    - [`routes/chat_routes.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/rag/routes/chat_routes.py): Endpoint hỏi đáp cho sinh viên (`POST /courses/{course_id}/chat`).
 
 ---
 
 ## 🚀 Hướng dẫn chạy thử nhanh phần GenQuiz (Cho Tin)
 
-Tin chỉ cần mở thư mục `src/ai` và chạy 1 trong các lệnh sau:
+Tin chỉ cần mở terminal trong môi trường ảo và chạy các lệnh sau:
 
 ### 1. Chạy Demo trực quan toàn bộ 3 luồng GenQuiz:
 ```bash
-# Từ thư mục gốc:
-& "src/ai/.venv/Scripts/python.exe" src/ai/run_quiz_demo.py
-
-# Hoặc nếu đang trong src/ai:
-python run_quiz_demo.py
+python rag/run_quiz_demo.py
 ```
 > Kết quả in ra ngay trên terminal: 1 câu Single Choice (Radio), 1 câu Multiple Choice (Checkbox), 1 câu Short Answer (Điền từ), kèm số trang và trích dẫn bằng chứng từ bài giảng CS101.
 
-### 2. Chạy bộ 3 test kiểm chứng cấu trúc JSON:
+### 2. Chạy bộ 3 test kiểm chứng cấu trúc JSON (Mock offline, <0.1s):
 ```bash
-& "src/ai/.venv/Scripts/python.exe" -m pytest src/ai/tests/test_genquiz_contract.py -v
+pytest rag/tests/test_genquiz_contract.py -v
 ```
-*(Kết quả: 3 passed in ~20s).*
+*(Kết quả: 3 passed in <0.1s).*
 
-### 3. Chạy toàn bộ test suite AI & Quality (8 test case):
+### 3. Chạy demo Grounded Chat RAG (4 kịch bản của Tin):
 ```bash
-& "src/ai/.venv/Scripts/python.exe" -m pytest src/ai/tests/test_ai_quality.py -v
+python rag/demo.py
+python -m unittest rag/test_rag.py
 ```
-*(Kết quả: 8 passed in ~40s).*
+
+### 4. Chạy toàn bộ test suite AI & Quality (8 test cases):
+```bash
+pytest rag/tests/test_ai_quality.py -v
+```
 
 ---
 
@@ -127,9 +129,10 @@ Theo thỏa thuận API Contract của nhóm, hàm `gen_quiz_standard()` và end
 
 ## ⚙️ Cấu hình môi trường (.env)
 
-Tất cả đã cấu hình sẵn trong `src/ai/.env` (được bảo vệ trong `.gitignore`):
+Tạo file `.env` trong thư mục `rag/` (file này được bảo vệ trong `.gitignore`, tuyệt đối không commit lên Git):
 ```env
-XKIRO_API_KEY=sk-xt-db53d6945bf9541ae208288e5bc6b8868261af803df2c6e0
-MODEL_NAME=deepseek/deepseek-v4.1-flash:free
+LLM_API_KEY=your-api-key-here
+LLM_BASE_URL=https://api.your-provider.com/v1
+LLM_MODEL=your-model-name-here
 AI_SERVICE_PORT=8001
 ```

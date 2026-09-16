@@ -1,5 +1,5 @@
 """
-run_quiz_demo.py — Script chạy thử nhanh toàn bộ tính năng GenQuiz (DeepSeek Model)
+run_quiz_demo.py — Script chạy thử nhanh toàn bộ tính năng GenQuiz (AI Assessment Engine)
 
 Kịch bản Demo chuẩn theo draft/team-3-ai-quality-day02-plan.md:
   1. Giảng viên sinh Quiz từ bài giảng với đủ 3 dạng câu hỏi chuẩn:
@@ -11,7 +11,7 @@ Kịch bản Demo chuẩn theo draft/team-3-ai-quality-day02-plan.md:
   3. Sinh viên tự luyện tập từ ghi chú cá nhân (Private Study Space - Không lưu DB).
 
 Cách chạy từ terminal:
-    & "src/ai/.venv/Scripts/python.exe" src/ai/run_quiz_demo.py
+    python rag/run_quiz_demo.py
 """
 import sys
 import os
@@ -38,7 +38,7 @@ def main():
     # -------------------------------------------------------------
     print("\n[1] 👩‍🏫 GIẢNG VIÊN: Sinh Quiz từ tài liệu đã duyệt (mat-intro-001)")
     print("    Yêu cầu: Sinh đủ 3 dạng chuẩn (single_choice, multiple_choice, short_answer)")
-    print(f"    Đang gọi DeepSeek API qua xkiro...")
+    print(f"    Đang phân tích bài giảng và tạo bộ câu hỏi khảo thí...")
 
     draft = qg.gen_from_material(
         material_id="mat-intro-001",
@@ -95,7 +95,7 @@ def main():
         "a stack overflow error."
     )
     print(f"Ghi chú của SV: \"{student_note}\"")
-    print("Đang gọi DeepSeek sinh câu hỏi luyện tập cá nhân...")
+    print("Đang tạo câu hỏi luyện tập từ ghi chú cá nhân...")
 
     student_questions = qg.gen_from_note(student_note, count=1, types=["single_choice"])
     if student_questions:
@@ -109,7 +109,7 @@ def main():
         print("  🛡️ Quyền riêng tư: KHÔNG lưu vào Database hay Draft Store!")
 
     print("\n" + "=" * 75)
-    print("🎉 TẤT CẢ CÁC LUỒNG GENQUIZ VỚI DEEPSEEK ĐÃ CHẠY THÀNH CÔNG VÀ CHUẨN XÁC!")
+    print("🎉 TẤT CẢ CÁC LUỒNG GENQUIZ ĐÃ CHẠY THÀNH CÔNG VÀ CHUẨN XÁC!")
     print("=" * 75)
 
 

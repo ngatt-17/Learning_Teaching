@@ -4,12 +4,12 @@ Runs on port 8001. Platform backend runs on port 8000.
 
 ⚠️  MOCKED_AUTH = True  (see mock_auth.py)
 ⚠️  MOCKED_FILE_PARSING = True  (see fixtures/sample_material.py)
-    AI calls to xkiro.com API are REAL.
+    LLM API calls are REAL.
 """
 import os
 import sys
 
-# Thêm src/ai/ vào sys.path để các module import nhau được
+# Thêm rag/ vào sys.path để các module import nhau được
 sys.path.insert(0, os.path.dirname(__file__))
 
 from fastapi import FastAPI
@@ -28,7 +28,7 @@ app = FastAPI(
     description=(
         "Standalone AI module: Chat RAG with citation, GenQuiz (3 modes), "
         "and quality test checklist. Day 2 build — auth and file parsing are mocked; "
-        "xkiro.com AI calls are real.\n\n"
+        "LLM API calls are real.\n\n"
         "**Mock tokens for testing:**\n"
         "- `student_a_token` — Student A (enrolled: course-a)\n"
         "- `student_b_token` — Student B (enrolled: course-b)\n"
