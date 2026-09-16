@@ -330,4 +330,6 @@ To maintain velocity without blocking development, the team requests Mentor guid
 This joint delivery plan synthesizes individual research, technical discussions, and contributions from all six team members:
 
 | Member | Primary Assigned Roles | Core Contributions to Joint Plan |
-| :--- | :--- | :--- |
+
+---
+
