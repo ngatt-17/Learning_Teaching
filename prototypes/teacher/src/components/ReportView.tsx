@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   BarChart2,
   Users,
-  CheckCircle2,
   AlertTriangle,
   Clock,
   Sparkles,
@@ -11,10 +10,8 @@ import {
   Download,
   Send,
   X,
-  UserCheck,
   TrendingUp,
   AlertCircle,
-  BookOpen,
   ChevronRight,
 } from 'lucide-react';
 

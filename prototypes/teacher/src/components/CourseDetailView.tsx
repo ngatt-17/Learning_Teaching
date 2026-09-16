@@ -11,7 +11,6 @@ import {
   Clock,
   Users,
   HelpCircle,
-  CheckCircle,
   Sparkles,
   Layers,
   Library,
@@ -65,7 +64,7 @@ export const CourseDetailView: React.FC<CourseDetailViewProps> = ({ course, onBa
   // Page routing state (replaces popups with full-screen pages)
   const [activeView, setActiveView] = useState<'course' | 'report' | 'create-quiz' | 'view-slide'>('course');
   const [activeChapterId, setActiveChapterId] = useState<string>('ch1');
-  const [activeQuizId, setActiveQuizId] = useState<string | null>(null);
+  const [_activeQuizId, setActiveQuizId] = useState<string | null>(null);
   const [activeQuizTitle, setActiveQuizTitle] = useState<string | null>(null);
   const [isComprehensiveQuiz, setIsComprehensiveQuiz] = useState<boolean>(false);
   const [activeSlide, setActiveSlide] = useState<SlideItem | null>(null);
@@ -245,6 +244,7 @@ export const CourseDetailView: React.FC<CourseDetailViewProps> = ({ course, onBa
         })
       );
       setActiveView('course');
+      setCourseTab('Home');
       triggerToast(`Đã xuất bản "${quizData.title}" (${quizData.count} câu) cho chương học thành công!`);
     }
   };
@@ -675,9 +675,9 @@ export const CourseDetailView: React.FC<CourseDetailViewProps> = ({ course, onBa
                           {/* ACTION BUTTON: TẠO THÊM QUIZ DƯỚI MỖI CHƯƠNG */}
                           <div className="pt-1 flex items-center justify-between">
                             <button
-                              onClick={() => handleOpenCreateQuiz(chapter.id, true)}
+                              onClick={() => handleOpenCreateQuiz(chapter.id, false)}
                               className="px-3.5 py-2 bg-white hover:bg-slate-100 text-[#1E3A6E] border border-blue-200 hover:border-blue-300 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                              title="Tạo thêm bài tập quiz mới cho chương này"
+                              title={`Tạo bài tập quiz mới cho ${chapter.title}`}
                             >
                               <PlusCircle size={14} className="text-[#1E3A6E]" />
                               <span>

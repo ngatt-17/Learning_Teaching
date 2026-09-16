@@ -18,11 +18,8 @@ import {
   AlertCircle,
   UploadCloud,
   FileUp,
-  Tag,
   ChevronDown,
   BookOpen,
-  FolderPlus,
-  Library,
 } from 'lucide-react';
 
 interface Question {
@@ -74,31 +71,34 @@ export const CreateQuizView: React.FC<CreateQuizViewProps> = ({
   onBack,
   onPublishQuiz,
 }) => {
-  // Mode: Comprehensive multi-chapter quiz
-  const isComprehensiveMode = true;
+  // Mode: Comprehensive multi-chapter quiz vs Single-chapter quiz
+  const isComprehensiveMode = isComprehensiveDefault;
 
   // Creation method: 'ai-slide' (AI sinh từ slide) | 'upload-bank' (Tải lên file đề thi PDF)
   const [creationMethod, setCreationMethod] = useState<'ai-slide' | 'upload-bank'>('ai-slide');
 
   // Multi-chapter selection for comprehensive quiz
   const [selectedChapterIds, setSelectedChapterIds] = useState<string[]>(() => {
-    if (allChapters.length > 0) {
+    if (isComprehensiveDefault && allChapters.length > 0) {
       return allChapters.map((c) => c.id);
     }
-    return ['ch1'];
+    return [];
   });
 
   // Multi-slide selection: stores all selected slide IDs
   const [selectedSlideIds, setSelectedSlideIds] = useState<string[]>(() => {
-    if (allChapters.length > 0) {
+    if (isComprehensiveDefault && allChapters.length > 0) {
       return allChapters.flatMap((c) => c.slides.map((s) => s.id));
     }
     return availableSlides.map((s) => s.id);
   });
 
-  const [quizTitle, setQuizTitle] = useState<string>(
-    `Quiz tổng hợp kiến thức liên chương (${courseCode})`
-  );
+  const [quizTitle, setQuizTitle] = useState<string>(() => {
+    if (isComprehensiveDefault) {
+      return `Quiz tổng hợp kiến thức liên chương (${courseCode})`;
+    }
+    return `Quiz: ${chapterTitle} (${courseCode})`;
+  });
 
   // Question count decided by teacher: default 10, max 100
   const [questionCount, setQuestionCount] = useState<number>(10);
@@ -368,40 +368,13 @@ export const CreateQuizView: React.FC<CreateQuizViewProps> = ({
     },
   ];
 
-  const aiQuestionBank: Question[] = [
+  // Bank 1: Chương 1 - Giới thiệu AI & Khung tác tử PEAS
+  const chapter1AiBank: Question[] = [
     {
-      id: 11,
-      text: 'Trong các thuật toán tìm kiếm mù (Uninformed Search), thuật toán nào đảm bảo tìm ra nghiệm tối ưu khi chi phí mỗi bước đi bằng nhau?',
-      bloom: 'Thông hiểu',
-      slideRef: 'Chương 2: Tìm kiếm mù • Slide AI(2).pdf (Trang 8)',
-      options: [
-        { key: 'A', text: 'Depth-First Search (DFS)' },
-        { key: 'B', text: 'Breadth-First Search (BFS)' },
-        { key: 'C', text: 'Depth-Limited Search (DLS)' },
-        { key: 'D', text: 'Iterative Deepening Search' },
-      ],
-      correctKey: 'B',
-      explanation: 'BFS duyệt theo từng tầng nên nghiệm tìm thấy đầu tiên luôn có độ sâu nhỏ nhất.',
-    },
-    {
-      id: 12,
-      text: 'Độ phức tạp không gian của thuật toán DFS với hệ số rẽ nhánh b và độ sâu tối đa m là:',
+      id: 101,
+      text: 'Bốn thành phần của khung cấu trúc tác tử PEAS gồm những gì?',
       bloom: 'Nhận biết',
-      slideRef: 'Chương 2: Tìm kiếm mù • Slide AI(2).pdf (Trang 14)',
-      options: [
-        { key: 'A', text: 'O(b^m)' },
-        { key: 'B', text: 'O(b * m)' },
-        { key: 'C', text: 'O(m^b)' },
-        { key: 'D', text: 'O(b + m)' },
-      ],
-      correctKey: 'B',
-      explanation: 'DFS chỉ cần lưu vết một đường đi từ gốc đến nút hiện tại, bộ nhớ là tuyến tính O(bm).',
-    },
-    {
-      id: 13,
-      text: 'Bốn thành phần của khung cấu trúc PEAS gồm những gì?',
-      bloom: 'Nhận biết',
-      slideRef: 'Chương 1: Giới thiệu AI • Slide AI(1).pdf (Trang 5)',
+      slideRef: `${chapterTitle} • Slide AI(1).pdf (Trang 5)`,
       options: [
         { key: 'A', text: 'Performance, Environment, Actuators, Sensors' },
         { key: 'B', text: 'Program, Entity, Action, State' },
@@ -412,10 +385,10 @@ export const CreateQuizView: React.FC<CreateQuizViewProps> = ({
       explanation: 'PEAS là viết tắt của Performance Measure, Environment, Actuators, Sensors.',
     },
     {
-      id: 14,
-      text: 'Sự khác biệt cốt lõi giữa Simple Reflex Agent và Goal-based Agent?',
-      bloom: 'Vận dụng',
-      slideRef: 'Chương 1: Giới thiệu AI • Slide AI(1).pdf (Trang 12)',
+      id: 102,
+      text: 'Sự khác biệt cốt lõi giữa Simple Reflex Agent và Goal-based Agent là gì?',
+      bloom: 'Thông hiểu',
+      slideRef: `${chapterTitle} • Slide AI(1).pdf (Trang 12)`,
       options: [
         { key: 'A', text: 'Reflex Agent chỉ phản ứng theo luật Condition-Action, Goal-based đánh giá dựa trên trạng thái đích' },
         { key: 'B', text: 'Reflex Agent có bộ nhớ lưu lại toàn bộ lịch sử' },
@@ -426,10 +399,84 @@ export const CreateQuizView: React.FC<CreateQuizViewProps> = ({
       explanation: 'Reflex Agent hành động tức thì theo luật IF...THEN, còn Goal-based Agent kết hợp trạng thái với mục tiêu cần đạt.',
     },
     {
-      id: 15,
+      id: 103,
+      text: 'Một tác tử được định nghĩa là Rational Agent (Tác tử duy lý) khi nào?',
+      bloom: 'Thông hiểu',
+      slideRef: `${chapterTitle} • Slide AI(1).pdf (Trang 16)`,
+      options: [
+        { key: 'A', text: 'Tác tử hành động nhằm tối đa hóa thước đo hiệu năng kỳ vọng dựa trên chuỗi tri giác và tri thức tích lũy' },
+        { key: 'B', text: 'Tác tử luôn đưa ra quyết định giống 100% con người' },
+        { key: 'C', text: 'Tác tử không bao giờ mắc bất kỳ sai sót nào trong tương lai' },
+        { key: 'D', text: 'Tác tử có tốc độ xử lý phần cứng nhanh nhất' },
+      ],
+      correctKey: 'A',
+      explanation: 'Tính duy lý trong AI được định nghĩa là tối đa hóa hiệu năng kỳ vọng dựa trên chuỗi tri giác và tri thức đã tích lũy.',
+    },
+    {
+      id: 104,
+      text: 'Phép thử Turing (Turing Test) do Alan Turing đề xuất nhằm mục đích gì?',
+      bloom: 'Nhận biết',
+      slideRef: `${chapterTitle} • Slide AI(1).pdf (Trang 8)`,
+      options: [
+        { key: 'A', text: 'Đánh giá khả năng một cỗ máy thể hiện hành vi thông minh tương đương con người' },
+        { key: 'B', text: 'Kiểm tra tốc độ tính toán phần cứng máy tính' },
+        { key: 'C', text: 'Xác thực độ an toàn mật mã của mạng nơ-ron' },
+        { key: 'D', text: 'Đo lường dung lượng bộ nhớ RAM của hệ thống' },
+      ],
+      correctKey: 'A',
+      explanation: 'Phép thử Turing kiểm tra xem người thẩm vấn có phân biệt được câu trả lời giữa máy tính và con người qua giao tiếp văn bản hay không.',
+    },
+    {
+      id: 105,
+      text: 'Môi trường chơi cờ Vua (Chess) thuộc loại môi trường nào theo phân loại tác tử AI?',
+      bloom: 'Vận dụng',
+      slideRef: `${chapterTitle} • Slide AI(1).pdf (Trang 21)`,
+      options: [
+        { key: 'A', text: 'Fully observable, Deterministic, Static, Discrete' },
+        { key: 'B', text: 'Partially observable, Stochastic, Dynamic, Continuous' },
+        { key: 'C', text: 'Fully observable, Stochastic, Dynamic, Discrete' },
+        { key: 'D', text: 'Partially observable, Deterministic, Static, Continuous' },
+      ],
+      correctKey: 'A',
+      explanation: 'Cờ vua là quan sát toàn phần (thấy hết bàn cờ), đơn định (không có xúc xắc), tĩnh (bàn cờ không đổi khi suy nghĩ), và rời rạc.',
+    },
+  ];
+
+  // Bank 2: Chương 2 - Thuật toán tìm kiếm mù (BFS, DFS, UCS, IDS)
+  const chapter2SearchBank: Question[] = [
+    {
+      id: 201,
+      text: 'Trong các thuật toán tìm kiếm mù (Uninformed Search), thuật toán nào đảm bảo tìm ra nghiệm tối ưu khi chi phí mỗi bước đi bằng nhau?',
+      bloom: 'Thông hiểu',
+      slideRef: `${chapterTitle} • Slide AI(2).pdf (Trang 8)`,
+      options: [
+        { key: 'A', text: 'Depth-First Search (DFS)' },
+        { key: 'B', text: 'Breadth-First Search (BFS)' },
+        { key: 'C', text: 'Depth-Limited Search (DLS)' },
+        { key: 'D', text: 'Iterative Deepening Search' },
+      ],
+      correctKey: 'B',
+      explanation: 'BFS duyệt theo từng tầng nên nghiệm tìm thấy đầu tiên luôn có độ sâu nhỏ nhất, tối ưu khi chi phí bước đồng nhất.',
+    },
+    {
+      id: 202,
+      text: 'Độ phức tạp không gian của thuật toán DFS với hệ số rẽ nhánh b và độ sâu tối đa m là:',
+      bloom: 'Nhận biết',
+      slideRef: `${chapterTitle} • Slide AI(2).pdf (Trang 14)`,
+      options: [
+        { key: 'A', text: 'O(b^m)' },
+        { key: 'B', text: 'O(b * m)' },
+        { key: 'C', text: 'O(m^b)' },
+        { key: 'D', text: 'O(b + m)' },
+      ],
+      correctKey: 'B',
+      explanation: 'DFS chỉ cần lưu vết một đường đi từ gốc đến nút hiện tại, bộ nhớ là tuyến tính O(bm).',
+    },
+    {
+      id: 203,
       text: 'Uniform Cost Search (UCS) sử dụng cấu trúc dữ liệu nào cho danh sách hàng đợi biên (Frontier)?',
       bloom: 'Thông hiểu',
-      slideRef: 'Chương 2: Tìm kiếm mù • Slide AI(2).pdf (Trang 19)',
+      slideRef: `${chapterTitle} • Slide AI(2).pdf (Trang 19)`,
       options: [
         { key: 'A', text: 'Ngăn xếp (Stack - LIFO)' },
         { key: 'B', text: 'Hàng đợi thông thường (Queue - FIFO)' },
@@ -439,11 +486,40 @@ export const CreateQuizView: React.FC<CreateQuizViewProps> = ({
       correctKey: 'C',
       explanation: 'UCS luôn mở rộng nút có chi phí đường đi g(n) nhỏ nhất, nên dùng Priority Queue.',
     },
+    {
+      id: 204,
+      text: 'Thuật toán Iterative Deepening Search (IDS) kết hợp ưu điểm nổi bật nào?',
+      bloom: 'Thông hiểu',
+      slideRef: `${chapterTitle} • Slide AI(2).pdf (Trang 24)`,
+      options: [
+        { key: 'A', text: 'Tiết kiệm không gian bộ nhớ của DFS và tính tối ưu/hoàn chỉnh của BFS' },
+        { key: 'B', text: 'Tốc độ nhanh của Greedy Search và tính chính xác của A*' },
+        { key: 'C', text: 'Tìm kiếm hai chiều và chi phí đồng nhất' },
+        { key: 'D', text: 'Không gian tuyến tính của BFS và thời gian hằng số của DFS' },
+      ],
+      correctKey: 'A',
+      explanation: 'IDS duyệt DFS nhiều lần với độ sâu tăng dần, đạt được tính hoàn chỉnh và tối ưu như BFS nhưng chỉ tốn bộ nhớ O(bd) như DFS.',
+    },
+    {
+      id: 205,
+      text: 'Trong đồ thị trạng thái có chu trình, cơ chế nào giúp Graph Search tránh rơi vào lặp vô hạn so với Tree Search?',
+      bloom: 'Vận dụng',
+      slideRef: `${chapterTitle} • Slide AI(2).pdf (Trang 29)`,
+      options: [
+        { key: 'A', text: 'Sử dụng Explored Set (tập đã đóng) để ghi nhớ các trạng thái đã mở rộng' },
+        { key: 'B', text: 'Sử dụng hàm Heuristic ước lượng khoảng cách' },
+        { key: 'C', text: 'Tăng hệ số rẽ nhánh b lên vô hạn' },
+        { key: 'D', text: 'Đảo ngược chiều duyệt từ đích về gốc' },
+      ],
+      correctKey: 'A',
+      explanation: 'Explored Set lưu trữ mọi trạng thái đã duyệt; nếu trạng thái mới sinh ra đã có trong tập này thì sẽ không duyệt lại, ngăn chặn lặp chu trình.',
+    },
   ];
 
-  // Combine banks for comprehensive quiz
+  // Combine banks for comprehensive quiz (Tổng hợp liên chương)
   const comprehensiveBank: Question[] = [
-    ...aiQuestionBank,
+    ...chapter1AiBank.map((q) => ({ ...q, slideRef: 'Chương 1: Giới thiệu AI • Slide AI(1).pdf' })),
+    ...chapter2SearchBank.map((q) => ({ ...q, slideRef: 'Chương 2: Tìm kiếm mù • Slide AI(2).pdf' })),
     ...triangleQuestionBank,
     ...radicalQuestionBank,
   ];
@@ -454,7 +530,9 @@ export const CreateQuizView: React.FC<CreateQuizViewProps> = ({
     ? triangleQuestionBank
     : isRadicalTopic
     ? radicalQuestionBank
-    : aiQuestionBank;
+    : lowerTitle.includes('tìm kiếm') || lowerTitle.includes('2')
+    ? chapter2SearchBank
+    : chapter1AiBank;
 
   // Initialize questions
   const [questions, setQuestions] = useState<Question[]>(() => {
@@ -579,14 +657,25 @@ export const CreateQuizView: React.FC<CreateQuizViewProps> = ({
   };
 
   const handlePublish = () => {
-    const selectedSlideNames = allChapters
-      .flatMap((c) => c.slides)
-      .filter((s) => selectedSlideIds.includes(s.id))
-      .map((s) => s.name);
+    let selectedSlideNames: string[] = [];
+    let targetChapterTitles: string[] = [];
 
-    const targetChapterTitles = allChapters
-      .filter((c) => selectedChapterIds.includes(c.id))
-      .map((c) => c.title);
+    if (isComprehensiveMode) {
+      selectedSlideNames = allChapters
+        .flatMap((c) => c.slides)
+        .filter((s) => selectedSlideIds.includes(s.id))
+        .map((s) => s.name);
+
+      targetChapterTitles = allChapters
+        .filter((c) => selectedChapterIds.includes(c.id))
+        .map((c) => c.title);
+    } else {
+      selectedSlideNames = availableSlides
+        .filter((s) => selectedSlideIds.includes(s.id))
+        .map((s) => s.name);
+
+      targetChapterTitles = [chapterTitle];
+    }
 
     onPublishQuiz({
       title: quizTitle,
@@ -657,18 +746,28 @@ export const CreateQuizView: React.FC<CreateQuizViewProps> = ({
                   {courseCode}
                 </span>
                 <span
-                  className={`text-xs px-2.5 py-0.5 rounded-full font-bold border ${
+                  className={`text-xs px-2.5 py-0.5 rounded-full font-bold border flex items-center gap-1.5 ${
                     isComprehensiveMode
                       ? 'bg-purple-50 text-purple-800 border-purple-200'
                       : 'bg-blue-50 text-[#1E3A6E] border-blue-200'
                   }`}
                 >
-                  {isComprehensiveMode ? '🎯 Tạo Quiz Tổng Hợp Liên Chương' : 'AI Quiz Generator'}
+                  {isComprehensiveMode ? (
+                    <>
+                      <Sparkles size={12} className="text-purple-600" />
+                      <span>🎯 Tạo Quiz Tổng Hợp Liên Chương</span>
+                    </>
+                  ) : (
+                    <>
+                      <BookOpen size={12} className="text-[#1E3A6E]" />
+                      <span>📘 Tạo Quiz Theo Từng Chương</span>
+                    </>
+                  )}
                 </span>
               </div>
               <h1 className="text-xl md:text-2xl font-extrabold text-[#1E3A6E] tracking-tight">
                 {isComprehensiveMode
-                  ? 'Soạn & Cấu hình Đề thi Quiz tổng hợp'
+                  ? 'Soạn & Cấu hình Đề thi Quiz tổng hợp liên chương'
                   : `Soạn & Duyệt câu hỏi: ${chapterTitle}`}
               </h1>
             </div>
@@ -752,13 +851,13 @@ export const CreateQuizView: React.FC<CreateQuizViewProps> = ({
                   <div>
                     <h2 className="font-bold text-slate-900 text-sm sm:text-base">
                       {isComprehensiveMode
-                        ? 'Cấu hình phạm vi kiến thức cho Quiz tổng hợp (Bài học / Chương / Slide)'
-                        : 'Cấu hình đề thi & Phân bổ câu hỏi AI'}
+                        ? 'Cấu hình phạm vi kiến thức cho Quiz tổng hợp (Nhiều chương & Slide)'
+                        : `Cấu hình đề thi & Phân bổ câu hỏi AI (${chapterTitle})`}
                     </h2>
                     <p className="text-[11px] text-slate-500">
                       {isComprehensiveMode
                         ? 'Chọn những bài / chương / slide nào sẽ được thêm vào đề thi tổng hợp bằng các nút bên dưới.'
-                        : 'Chọn slide nguồn, nhập số lượng câu hỏi và điều chỉnh tỷ lệ thang đo Bloom theo ý bạn.'}
+                        : 'Chọn slide nguồn trong chương này, nhập số lượng câu hỏi và điều chỉnh tỷ lệ thang đo Bloom.'}
                     </p>
                   </div>
                 </div>
@@ -928,7 +1027,19 @@ export const CreateQuizView: React.FC<CreateQuizViewProps> = ({
                 </div>
               ) : (
                 /* SINGLE CHAPTER SLIDE SELECTION */
-                <div className="space-y-2">
+                <div className="space-y-3">
+                  <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-lg text-xs text-[#1E3A6E] flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BookOpen size={15} className="text-[#1E3A6E]" />
+                      <span>
+                        Chương học áp dụng: <strong>{chapterTitle}</strong>
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-500 font-medium">
+                      Tạo quiz riêng cho chương này (Tab Home)
+                    </span>
+                  </div>
+
                   <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
                     <span className="flex items-center gap-1.5">
                       <Layers size={14} className="text-[#1E3A6E]" />

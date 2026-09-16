@@ -6,7 +6,6 @@ import {
   ZoomOut,
   Printer,
   ChevronUp,
-  FileText,
   ExternalLink,
 } from 'lucide-react';
 
@@ -315,9 +314,9 @@ export const SlideView: React.FC<SlideViewProps> = ({
                       </ul>
                     )}
 
-                    {slide.highlight && (
+                    {'highlight' in slide && Boolean((slide as { highlight?: string }).highlight) && (
                       <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 font-medium">
-                        {slide.highlight}
+                        {(slide as { highlight?: string }).highlight}
                       </div>
                     )}
 

@@ -14,9 +14,6 @@ import {
   Sparkles,
   ArrowRight,
   Calendar,
-  Clock,
-  Send,
-  FileText,
   UserCheck,
   GraduationCap,
 } from 'lucide-react';
@@ -60,7 +57,7 @@ interface StudentRosterViewProps {
 }
 
 export const StudentRosterView: React.FC<StudentRosterViewProps> = ({
-  courseCode,
+  courseCode: _courseCode,
   enrolledStudentsCount,
   totalQuizzesCount,
 }) => {
@@ -71,7 +68,7 @@ export const StudentRosterView: React.FC<StudentRosterViewProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Initial Mock Students with comprehensive strengths and weaknesses updated frequently
-  const [students, setStudents] = useState<StudentProfile[]>([
+  const [students] = useState<StudentProfile[]>([
     {
       id: '22010314',
       name: 'Phạm Hồng Phúc',
@@ -523,7 +520,9 @@ export const StudentRosterView: React.FC<StudentRosterViewProps> = ({
                         <div className="font-bold text-slate-900 group-hover:text-[#1E3A6E] transition-colors flex items-center gap-1.5">
                           <span>{st.name}</span>
                           {st.status === 'Xuất sắc' && (
-                            <Award size={13} className="text-amber-500" title="Sinh viên xuất sắc" />
+                            <span title="Sinh viên xuất sắc">
+                              <Award size={13} className="text-amber-500" />
+                            </span>
                           )}
                         </div>
                         <div className="text-[11px] text-slate-500 mt-0.5">

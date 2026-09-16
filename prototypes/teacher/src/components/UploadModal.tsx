@@ -7,8 +7,6 @@ import {
   Sparkles,
   X,
   FileUp,
-  FolderPlus,
-  CheckCircle,
 } from 'lucide-react';
 
 export interface UploadedSlideData {
