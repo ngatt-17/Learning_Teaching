@@ -12,9 +12,10 @@ export interface Course {
 
 interface CourseCardProps {
   course: Course;
+  onSelect?: (course: Course) => void;
 }
 
-export const CourseCard: React.FC<CourseCardProps> = ({ course }) => {
+export const CourseCard: React.FC<CourseCardProps> = ({ course, onSelect }) => {
   // SVG background patterns for course cover header
   const renderBannerPattern = () => {
     switch (course.patternType) {
@@ -56,7 +57,10 @@ export const CourseCard: React.FC<CourseCardProps> = ({ course }) => {
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between">
+    <div
+      onClick={() => onSelect?.(course)}
+      className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs hover:shadow-md transition-all duration-200 flex flex-col justify-between cursor-pointer group"
+    >
       {/* Course Banner */}
       <div className="h-44 w-full relative overflow-hidden">
         {renderBannerPattern()}
@@ -67,13 +71,14 @@ export const CourseCard: React.FC<CourseCardProps> = ({ course }) => {
         <div>
           <div className="flex items-start justify-between gap-2">
             <h3
-              className="font-bold text-slate-900 text-base leading-snug line-clamp-2 hover:text-[#1E3A6E] cursor-pointer"
+              className="font-bold text-slate-900 text-base leading-snug line-clamp-2 group-hover:text-[#1E3A6E] transition-colors"
               title={`${course.code} - ${course.name}`}
             >
               {course.code} - {course.name}
             </h3>
             <button
-              className="text-slate-700 hover:text-slate-900 p-1 rounded-full hover:bg-slate-100 transition-colors shrink-0"
+              onClick={(e) => { e.stopPropagation(); }}
+              className="text-slate-700 hover:text-slate-900 p-1 rounded-full hover:bg-slate-100 transition-colors shrink-0 cursor-pointer"
               title="Course options"
             >
               <MoreVertical size={20} />
