@@ -1,0 +1,101 @@
+%% CECS AI Learning Hub — ERD (nguồn mermaid, render được trên GitHub)
+%% Ảnh SVG tương ứng: docs/exploration/day-02/erd.svg
+erDiagram
+    users ||--o{ enrollments : "được gán vào"
+    users ||--o{ courses : "phụ trách (instructor_id)"
+    users ||--o{ materials : "upload (uploaded_by)"
+    users ||--o{ week_classifications : "phân loại (classified_by)"
+    users ||--o{ question_banks : "upload (uploaded_by)"
+    users ||--o{ quizzes : "tạo (created_by)"
+    users ||--o{ quiz_attempts : "nộp bài"
+    users ||--o{ private_notes : "sở hữu (RLS)"
+    users ||--o{ student_scores : "có điểm"
+
+    courses ||--o{ enrollments : "có thành viên"
+    courses ||--o{ materials : "chứa"
+    courses ||--o{ week_classifications : "chia tuần"
+    courses ||--o{ question_banks : "có ngân hàng đề"
+    courses ||--o{ quizzes : "có quiz"
+    courses ||--o{ quiz_attempts : "ghi nhận"
+    courses ||--o{ private_notes : "phạm vi"
+    courses ||--o{ student_scores : "phạm vi"
+    courses ||--o{ anonymous_feedback : "nhận phản hồi"
+
+    materials ||--o{ week_classifications : "được xếp tuần"
+    materials ||--o{ question_banks : "nguồn đề"
+    materials ||--o{ quizzes : "nguồn quiz"
+
+    quizzes ||--o{ quiz_questions : "gồm"
+    quizzes ||--o{ quiz_attempts : "được làm"
+    quiz_attempts ||--o{ quiz_attempt_answers : "chi tiết"
+    quiz_questions ||--o{ quiz_attempt_answers : "được trả lời"
+
+    users { uuid id PK
+            text email UK
+            text name
+            text role "admin|instructor|ta|student" }
+    courses { uuid id PK
+              text code UK
+              text name
+              text term
+              uuid instructor_id FK }
+    enrollments { uuid id PK
+                  uuid user_id FK
+                  uuid course_id FK
+                  text role }
+    materials { uuid id PK
+                uuid course_id FK
+                text title
+                text status "draft|processing|approved|archived"
+                boolean approved_for_ai
+                uuid uploaded_by FK }
+    week_classifications { uuid id PK
+                           uuid material_id FK
+                           uuid course_id FK
+                           integer week_number
+                           text lesson_title }
+    question_banks { uuid id PK
+                     uuid course_id FK
+                     uuid material_id FK
+                     text title }
+    quizzes { uuid id PK
+              uuid course_id FK
+              uuid material_id FK
+              integer week_number
+              text quiz_type "lesson|comprehensive"
+              text source "manual|ai_draft"
+              text status "draft|published|archived"
+              numeric points_per_question }
+    quiz_questions { uuid id PK
+                     uuid quiz_id FK
+                     integer position
+                     text question_type "multiple_choice|short_answer"
+                     jsonb options
+                     text correct_answer "KHONG gui cho SV"
+                     text explanation }
+    quiz_attempts { uuid id PK
+                    uuid quiz_id FK
+                    uuid student_id FK
+                    integer attempt_number
+                    numeric score
+                    numeric points_awarded "chi lan dau > 0" }
+    quiz_attempt_answers { uuid id PK
+                           uuid attempt_id FK
+                           uuid question_id FK
+                           text submitted_answer
+                           boolean is_correct }
+    private_notes { uuid id PK
+                    uuid owner_id FK "RLS: app.current_user_id"
+                    uuid course_id FK
+                    text title
+                    text content }
+    student_scores { uuid id PK
+                     uuid student_id FK
+                     uuid course_id FK
+                     integer streak_days
+                     numeric quiz_score
+                     numeric comprehensive_score
+                     numeric active_score }
+    anonymous_feedback { uuid id PK
+                         uuid course_id FK
+                         text content "khong co cot tac gia" }
