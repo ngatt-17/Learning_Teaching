@@ -20,8 +20,21 @@ coverage/
 *.log
 .DS_Store
 Thumbs.db
+
+# Python
 .venv/
-__pycache__/
+**/__pycache__/
 *.pyc
 .pytest_cache/
 
+# Uploaded course files (private storage, never committed)
+platform/backend/storage/
+
+# Local translations and scratch
+translations/
+CHANGE_REQUEST/
+draft/
+
+# Local IDE
+.vscode/
+pyrightconfig.json

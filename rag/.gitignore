@@ -1,0 +1,18 @@
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+
+# Environment secrets — KHÔNG commit
+.env
+
+# Editor
+.idea/
+.vscode/
+*.swp

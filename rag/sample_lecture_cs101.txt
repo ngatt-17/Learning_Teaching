@@ -1,0 +1,26 @@
+[Slide 1] CS101 — Introduction to C Programming & Primitive Data Types
+C is a statically typed, compiled programming language. In modern 64-bit systems, primitive data types typically occupy:
+- char: 1 byte (stores single character or small integer -128 to 127)
+- int: 4 bytes (standard integer type)
+- float: 4 bytes (single-precision floating-point)
+- double: 8 bytes (double-precision floating-point)
+- void*: 8 bytes (pointer size on 64-bit architectures)
+Variables must be declared with their type before being used. Type checking occurs during compilation.
+
+[Slide 2] CS101 — Pointer Concepts & Dereferencing
+A pointer in C is a variable that stores the memory address of another variable.
+- The address-of operator '&' returns the memory address of its operand (e.g., &x).
+- The dereference operator '*' (also known as indirection operator) accesses the value stored at the memory address pointed to by the pointer.
+Example:
+int x = 42;
+int *ptr = &x;
+printf("%d", *ptr); // Prints 42
+Uninitialized pointers contain garbage addresses and can cause segmentation faults if dereferenced.
+
+[Slide 3] CS101 — Dynamic Memory Allocation (stdlib.h)
+Dynamic memory is allocated on the heap at runtime using functions declared in <stdlib.h>:
+- malloc(size_t size): Allocates a block of contiguous memory of specified bytes. Memory is uninitialized.
+- calloc(size_t num, size_t size): Allocates memory for an array and initializes all bytes to zero.
+- realloc(void *ptr, size_t new_size): Resizes a previously allocated memory block.
+- free(void *ptr): Deallocates memory previously allocated by malloc, calloc, or realloc, releasing it back to the heap.
+Failing to free allocated memory causes memory leaks. Accessing memory after free() results in undefined behavior (dangling pointer).
