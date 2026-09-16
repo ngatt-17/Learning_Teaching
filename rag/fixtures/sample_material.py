@@ -156,8 +156,9 @@ def get_material(material_id: str) -> MaterialFixture | None:
 
 def get_approved_materials_for_course(course_id: str) -> dict[str, MaterialFixture]:
     """Trả về các material được duyệt (approved_for_ai=True) của course."""
+    normalized_cid = "course-a" if course_id.lower() in ["cs101", "cs-101"] else course_id
     return {
         mid: mat
         for mid, mat in SAMPLE_MATERIALS.items()
-        if mat["course_id"] == course_id and mat["approved_for_ai"]
+        if (mat["course_id"] == course_id or mat["course_id"] == normalized_cid) and mat["approved_for_ai"]
     }

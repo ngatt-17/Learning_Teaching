@@ -26,7 +26,16 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
-from config import LLM_API_KEY, LLM_BASE_URL, DEFAULT_MODEL, MAX_QUIZ_COUNT
+from config import (
+    LLM_API_KEY,
+    LLM_BASE_URL,
+    get_ai_client,
+    get_configured_model,
+    XKIRO_API_KEY,
+    XKIRO_BASE_URL,
+    DEFAULT_MODEL,
+    MAX_QUIZ_COUNT,
+)
 from fixtures.sample_material import get_material
 
 
@@ -71,7 +80,7 @@ _DRAFT_STORE: dict[str, QuizDraft] = {}
 
 
 # ── OpenAI-compatible LLM client ──────────────────────────────────────────
-_client = OpenAI(api_key=LLM_API_KEY or "dummy_test_key", base_url=LLM_BASE_URL if LLM_BASE_URL else None)
+_client = get_ai_client()
 
 
 # ── Prompt Builder ─────────────────────────────────────────────────────────
@@ -276,11 +285,12 @@ def _call_llm_for_quiz(
     default_source: str = "CourseMaterial.pdf",
     target_qtype: str = "",
 ) -> list[Question]:
-    """Gọi LLM engine chuẩn hóa và parse kết quả JSON."""
+    """Gọi LLM engine chuẩn hóa (hỗ trợ OpenAI, Gemini, DeepSeek, xKiro) và parse kết quả JSON."""
     raw = ""
+    model = get_configured_model()
     try:
         completion = _client.chat.completions.create(
-            model=DEFAULT_MODEL,
+            model=model,
             messages=[
                 {"role": "system", "content": "You are a professional educational assessment engine for VinUniversity. Output strictly valid JSON arrays only."},
                 {"role": "user", "content": prompt}
@@ -292,7 +302,7 @@ def _call_llm_for_quiz(
     except Exception as e:
         logger.error(
             "LLM API call failed (model=%s, error_type=%s): %s",
-            DEFAULT_MODEL,
+            model,
             type(e).__name__,
             str(e),
             exc_info=True,

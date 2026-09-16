@@ -18,7 +18,8 @@ class RetrievedChunk(TypedDict):
     material_id: str
     title: str
     page: int
-    snippet: str        # ~100 ký tự đầu
+    snippet: str        # ~120 ký tự đầu cho hiển thị UI
+    text: str           # Toàn văn nội dung chunk để LLM đọc và tổng hợp
     score: float
 
 
@@ -34,6 +35,55 @@ def _tf(tokens: list[str]) -> dict[str, float]:
         freq[t] = freq.get(t, 0) + 1
     n = max(len(tokens), 1)
     return {w: c / n for w, c in freq.items()}
+
+
+# ── Từ điển mở rộng thuật ngữ CNTT Tiếng Việt <-> Tiếng Anh ──────────────
+VIETNAMESE_CS_MAPPINGS: dict[str, list[str]] = {
+    "biến": ["variable", "variables"],
+    "hàm": ["function", "functions", "def"],
+    "vòng lặp": ["loop", "loops", "while", "for"],
+    "lặp": ["loop", "loops", "iteration", "iterates"],
+    "con trỏ": ["pointer", "pointers"],
+    "mảng": ["array", "arrays", "list", "lists"],
+    "danh sách": ["list", "lists"],
+    "từ điển": ["dict", "dictionary", "dictionaries"],
+    "bộ": ["tuple", "tuples", "set", "sets"],
+    "tập hợp": ["set", "sets"],
+    "bộ nhớ": ["memory", "storage", "allocation"],
+    "kiểu dữ liệu": ["data", "type", "types"],
+    "kiểu": ["type", "types"],
+    "số nguyên": ["integer", "int"],
+    "số thực": ["float", "double"],
+    "chuỗi": ["string", "str"],
+    "ký tự": ["char", "character"],
+    "điều kiện": ["condition", "if", "else", "branch"],
+    "rẽ nhánh": ["branch", "if", "else"],
+    "cú pháp": ["syntax"],
+    "lớp": ["class", "classes"],
+    "đối tượng": ["object", "objects"],
+    "cấp phát": ["allocate", "allocation", "malloc"],
+    "giải phóng": ["free", "deallocate"],
+    "thu hồi": ["free", "garbage"],
+    "ngăn xếp": ["stack"],
+    "hàng đợi": ["queue"],
+    "đệ quy": ["recursion", "recursive"],
+    "tham số": ["parameter", "parameters", "argument", "arguments"],
+    "trả về": ["return", "returns"],
+    "ví dụ": ["example", "examples"],
+    "toán tử": ["operator", "operators"],
+}
+
+
+def _expand_query_tokens(query: str, query_tokens: list[str]) -> list[str]:
+    """Mở rộng câu hỏi tiếng Việt sang các thuật ngữ kỹ thuật tiếng Anh để đối khớp với slide."""
+    expanded = list(query_tokens)
+    q_lower = query.lower()
+    for vn_term, en_synonyms in VIETNAMESE_CS_MAPPINGS.items():
+        if vn_term in q_lower:
+            for syn in en_synonyms:
+                if syn not in expanded:
+                    expanded.append(syn)
+    return expanded
 
 
 def _idf(word: str, docs: list[list[str]]) -> float:
@@ -59,9 +109,10 @@ def retrieve(query: str, course_id: str, top_k: int = 5) -> list[RetrievedChunk]
     if not all_docs:
         return []
 
-    # Tokenize
+    # Tokenize và mở rộng từ khóa song ngữ
     tokenized_docs = [_tokenize(text) for _, _, _, text in all_docs]
-    query_tokens = _tokenize(query)
+    base_tokens = _tokenize(query)
+    query_tokens = _expand_query_tokens(query, base_tokens)
 
     # TF-IDF cosine similarity
     vocab = set(query_tokens)
@@ -89,6 +140,7 @@ def retrieve(query: str, course_id: str, top_k: int = 5) -> list[RetrievedChunk]
                 title=title,
                 page=page,
                 snippet=text[:120].rstrip() + "…",
+                text=text,
                 score=round(score, 4),
             ))
 
