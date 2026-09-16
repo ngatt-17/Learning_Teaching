@@ -236,3 +236,56 @@ def api_gen_quiz_contract(
         lesson_id=body.lesson_id,
     )
     return result
+
+
+# ── API Contract Endpoint: Competency & Gap Analysis ───────────────────────
+class QuizAnswerInput(BaseModel):
+    question_id: str = Field(default="q1", examples=["q1"])
+    topic: str = Field(..., examples=["Cú pháp & Kiểu dữ liệu cơ bản"])
+    is_correct: bool = Field(..., examples=[True])
+
+
+class AnalyzeCompetencyRequest(BaseModel):
+    student_id: str = Field(..., examples=["std_123"])
+    course_id: Optional[str] = Field(default="CS101", examples=["CS101"])
+    quiz_answers: list[QuizAnswerInput] = Field(default=[], description="Kết quả làm bài quiz chính thức")
+    chat_topics: Optional[list[str]] = Field(default=[], description="Lịch sử thắc mắc bài học tại khung chat chung")
+    private_notes: Optional[Any] = Field(
+        default=None,
+        description="⚠️ CẤM CUNG CẤP: Dữ liệu ghi chú cá nhân của sinh viên không được phép phân tích."
+    )
+
+
+@contract_router.post("/analyze-competency")
+def api_analyze_competency(
+    body: AnalyzeCompetencyRequest,
+    current_user: MockUser = Depends(get_current_user),
+):
+    """
+    Endpoint chuẩn theo hợp đồng API Team 3 (AI & Quality) — Khối 3: Competency Analyst.
+    Phân tích điểm mạnh (Strengths) và điểm yếu / lỗ hổng kiến thức (Weaknesses).
+    
+    Quy tắc bảo mật bất khả xâm phạm ('Private means private'):
+    - Chỉ phân tích từ kết quả quiz_answers và chat_topics chung của bài học.
+    - Tuyệt đối loại trừ và từ chối xử lý dữ liệu private_notes của người học.
+    """
+    if body.private_notes is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Security violation: 'private_notes' cannot be accessed or analyzed by the AI Competency Engine. "
+                "Private study space is strictly confidential."
+            ),
+        )
+
+    from competency_analyzer import analyze_competency
+
+    raw_answers = [ans.model_dump() for ans in body.quiz_answers]
+    report = analyze_competency(
+        student_id=body.student_id,
+        quiz_answers=raw_answers,
+        chat_topics=body.chat_topics or [],
+        course_id=body.course_id or "CS101",
+    )
+    return report
+
