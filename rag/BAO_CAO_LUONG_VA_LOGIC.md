@@ -24,8 +24,8 @@
 | | `rag/config.py` | Quản lý đa nhà cung cấp LLM (Gemini, OpenAI, DeepSeek, xKiro), tự động phát hiện API Key & Base URL. |
 | | `rag/mock_auth.py` | Xác thực Bearer Token & phân quyền theo môn học (RBAC: Student, Instructor, TA, Admin). |
 | | `rag/routes/health_routes.py` | Endpoint `GET /health` giám sát sức khỏe dịch vụ. |
-| **Khối 1: GenQuiz** | `rag/quiz_generator.py` | **Trái tim sinh đề 3 dạng:** Prompting ép JSON schema, gọi LLM, chuẩn hóa 4 options, fallback tự động, Draft Store. |
-| | `rag/routes/quiz_routes.py` | Endpoints tạo đề từ slide (`from-material`), ngân hàng (`from-bank`), ghi chú (`from-note`), duyệt đề (`publish`). |
+| **Khối 1: GenQuiz** | `rag/quiz_generator.py` | **Trái tim sinh đề 3 dạng:** Prompting ép JSON schema, gọi LLM, chuẩn hóa 4 options, fallback tự động, Draft Store, hỗ trợ sinh viên tự ôn tập riêng tư. |
+| | `rag/routes/quiz_routes.py` | Endpoints tạo đề từ slide (`from-material`), ngân hàng (`from-bank`), ghi chú (`from-note`), tự ôn từ bài giảng (`from-material/self-study`), duyệt đề (`publish`). |
 | | `rag/run_quiz_demo.py` | Script demo terminal tạo câu hỏi 3 dạng trực tiếp từ file bài giảng. |
 | | `rag/sample_lecture_cs101.txt` | File bài giảng mẫu C Programming phục vụ sinh đề và test. |
 | **Khối 2: Chat RAG** | `rag/chat_rag.py` | **Điều phối Two-Stage RAG:** Lấy Top-10 ứng viên $\rightarrow$ Rerank Top-3 $\rightarrow$ Ép Citation Injection cấp câu `[1], [2]`. |
@@ -84,6 +84,16 @@ sequenceDiagram
         Core-->>GV: Đề đã xuất bản cho sinh viên làm bài
     end
 ```
+
+### 2.1b Luồng Sinh Đề Tự Ôn Tập Cho Sinh Viên (Student Private Self-Study)
+Khác với luồng sinh đề của Giảng viên (`POST /quiz/from-material`) có sinh `draft_id` và lưu vào `_DRAFT_STORE`, luồng tự ôn tập của Sinh viên được thiết kế riêng:
+* **Endpoint:** `POST /quiz/from-material/self-study`
+* **Hàm lõi:** `gen_from_material_self_study()` trong `rag/quiz_generator.py`.
+* **Phân quyền:** Chỉ cho phép Sinh viên (`role == "student"`), trả `403 Forbidden` nếu là Giảng viên.
+* **Nguyên tắc bảo vệ dữ liệu (Privacy-First):**
+  1. Sử dụng token của sinh viên để đọc học liệu đã duyệt qua `platform_client.get_material_pages()`.
+  2. Tuyệt đối **không sinh `draft_id`**, không ghi vào `_DRAFT_STORE` hay bất kỳ cơ sở dữ liệu nào.
+  3. Trả thẳng danh sách câu hỏi về cho sinh viên với cờ `stored: false`, `self_study: true` và cam kết bảo mật `privacy_notice`. Giảng viên và quản trị viên không thể truy cập.
 
 ---
 
@@ -387,43 +397,109 @@ Dưới đây là 3 Endpoint cốt lõi của Team 3 (chạy tại port **8001**
 
 ---
 
-# 6. BẰNG CHỨNG KIỂM THỬ TỰ ĐỘNG (23/23 PASSED) & BENCHMARK ĐỊNH LƯỢNG
+### 5.4 Endpoint 4: Sinh bài tập tự ôn tập cho sinh viên từ slide bài giảng
+* **Phương thức:** `POST /quiz/from-material/self-study`
+* **Quyền gọi:** Chỉ dành cho Sinh viên (`role == "student"`)
+* **Request:**
+  ```json
+  {
+    "material_id": "mat-intro-001",
+    "course_id": "course-a",
+    "topic": "Biến & Kiểu dữ liệu",
+    "difficulty": "medium",
+    "question_type": "mixed",
+    "count": 5
+  }
+  ```
+* **Response:**
+  ```json
+  {
+    "self_study": true,
+    "stored": false,
+    "owner_id": "student_001",
+    "course_id": "course-a",
+    "material_title": "Introduction to Programming — Week 1",
+    "count": 5,
+    "questions": [
+      {
+        "id": "q1",
+        "type": "single_choice",
+        "topic": "Variables",
+        "question": "Trong ngôn ngữ C, biến là gì?",
+        "options": ["Vùng nhớ có tên", "Một hàm số", "Một tập tin", "Một lớp đối tượng"],
+        "correct_answer": 0,
+        "explanation": "A variable is a named storage location in memory.",
+        "citation": {
+          "source_file": "Lecture01.pdf",
+          "page": 1,
+          "evidence_snippet": "A variable is a named storage location..."
+        }
+      }
+    ],
+    "privacy_notice": "These questions were generated from the approved course material 'Introduction to Programming — Week 1' for your personal study only. They are not stored on the server and cannot be accessed by your instructor, other students, or administrators."
+  }
+  ```
 
-### 6.1 Bảng kết quả 23 bài kiểm thử tự động (100% Passed)
+---
+
+# 6. BẰNG CHỨNG KIỂM THỬ TỰ ĐỘNG (44/44 PASSED) & BENCHMARK ĐỊNH LƯỢNG
+
+### 6.1 Bảng kết quả 44 bài kiểm thử tự động (100% Passed)
 
 ```text
 ================================ TEST RESULTS ================================
 
-[KHỐI 1: GENQUIZ ENGINE — 7 TESTS PASSED]
+[KHỐI 1: GENQUIZ ENGINE — 9 TESTS PASSED]
   ✓ test_01_single_choice_json_structure           PASSED (Đúng 4 options, index int, citation)
   ✓ test_02_multiple_choice_json_structure         PASSED (Đúng 4 options, multi indices, citation)
   ✓ test_03_short_answer_json_structure            PASSED (options=[], keywords chấm điểm)
   ✓ test_04_fallback_preserves_target_qtype        PASSED (Duy trì dạng câu hỏi khi fallback)
   ✓ test_T04_genquiz_from_material_returns_draft    PASSED (Sinh đề trả về status=draft)
+  ✓ test_T04b_genquiz_is_503_without_llm_and_400_for_draft_material PASSED (Xử lý lỗi LLM & slide draft)
   ✓ test_T05_genquiz_publish_requires_instructor    PASSED (Chặn sinh viên publish đề - HTTP 403)
   ✓ test_T06_genquiz_from_note_not_stored           PASSED (Ghi chú cá nhân không lưu DB)
+  ✓ test_T06b_genquiz_self_study_not_stored        PASSED (Sinh viên tự ôn từ slide: không lưu DB, self_study=True)
+  ✓ test_T06c_instructor_cannot_use_self_study     PASSED (Chặn giảng viên gọi self-study - HTTP 403)
 
-[KHỐI 2: GROUNDED CHAT RAG & GUARDRAILS — 10 TESTS PASSED]
+[KHỐI 2: GROUNDED CHAT RAG, QUIZ TUTOR & RETRIEVAL — 26 TESTS PASSED]
   ✓ test_T01_chat_returns_answer_with_citation      PASSED (Trích dẫn số trang chính xác)
   ✓ test_T02_chat_insufficient_evidence             PASSED (Từ chối chuẩn khi thiếu dữ liệu)
   ✓ test_T03_draft_material_excluded_from_retrieval PASSED (Loại trừ 100% slide draft)
   ✓ test_T07_student_cannot_access_other_course_chat PASSED (Chặn truy cập chéo môn học)
+  ✓ test_T07b_forged_or_missing_tokens_are_rejected PASSED (Từ chối token giả mạo hoặc hết hạn)
   ✓ test_T08_genquiz_contract_and_citations         PASSED (Hợp đồng API chuẩn hóa)
+  ✓ test_T09_llm_path_returns_llm_generation_with_citations PASSED (Sinh câu trả lời LLM có trích dẫn)
+  ✓ test_T10_provider_failure_falls_back_to_extractive PASSED (Fallback extractive khi provider lỗi)
+  ✓ test_hint_mode_never_loads_the_answer_key       PASSED (Quiz Tutor: Hint mode không nạp đáp án)
+  ✓ test_hint_mode_replaces_llm_output_that_reveals_an_answer PASSED (Quiz Tutor: Chặn LLM lộ đáp án)
+  ✓ test_hint_mode_allows_a_safe_llm_hint           PASSED (Quiz Tutor: Gợi mở tư duy an toàn)
+  ✓ test_solver_request_is_refused_in_hint_mode     PASSED (Quiz Tutor: Từ chối yêu cầu giải hộ)
+  ✓ test_review_mode_explains_the_callers_own_attempt PASSED (Quiz Tutor: Giải thích attempt chính chủ)
+  ✓ test_review_mode_rejects_an_attempt_that_is_not_the_callers PASSED (Quiz Tutor: Chặn xem attempt người khác)
+  ✓ test_tutor_denies_other_course_and_unknown_questions PASSED (Quiz Tutor: Chặn môn khác & câu hỏi lạ)
+  ✓ test_leak_filter_catches_common_phrasings       PASSED (Quiz Tutor: Bộ lọc rò rỉ đáp án)
+  ✓ test_draft_is_dropped_by_the_adapter           PASSED (Retrieval: Loại bỏ slide draft)
+  ✓ test_syllable_collision_does_not_add_unrelated_citation PASSED (Retrieval: Chống va chạm âm tiết tiếng Việt)
+  ✓ test_filler_words_do_not_outrank_the_defining_page PASSED (Retrieval: Loại bỏ từ đệm tiếng Việt)
+  ✓ test_extractive_answer_keeps_whole_sentences    PASSED (Retrieval: Trích dẫn nguyên câu)
+  ✓ test_off_topic_vietnamese_question_is_insufficient PASSED (Retrieval: Từ chối câu hỏi tiếng Việt ngoài lề)
   ✓ test_grounded_chat_approved_material_with_citation PASSED (Grounded Chat slide đã duyệt)
-  ✓ test_grounded_chat_insufficient_evidence_exact_phrase PASSED (Chống ảo giác chuẩn tiếng Việt)
   ✓ test_grounded_chat_blocks_draft_materials        PASSED (Chặn slide draft Lecture 03)
   ✓ test_grounded_chat_blocks_other_course_materials PASSED (Chặn tài liệu môn EE201)
+  ✓ test_grounded_chat_insufficient_evidence_exact_phrase PASSED (Chống ảo giác chuẩn tiếng Việt)
   ✓ test_grounded_chat_tutor_not_solver              PASSED (Socratic tutor: từ chối giải hộ)
 
-[KHỐI 3: COMPETENCY ANALYST — 6 TESTS PASSED]
+[KHỐI 3: COMPETENCY ANALYST — 8 TESTS PASSED]
   ✓ test_01_compute_topic_mastery_calculation       PASSED (Tính chuẩn % Mastery theo topic)
   ✓ test_02_strengths_classification               PASSED (Phân loại Solid Mastery >= 80%)
   ✓ test_03_weaknesses_classification_by_score     PASSED (Phân loại Needs Review < 60% + Slide)
   ✓ test_04_weakness_triggered_by_frequent_chat_inquiries PASSED (Băn khoăn chat >= 2 lần -> Điểm yếu)
   ✓ test_05_privacy_boundary_rejects_private_notes  PASSED (Chặn 100% private_notes - HTTP 400)
   ✓ test_06_api_endpoint_json_contract             PASSED (Khớp 100% schema JSON hợp đồng)
+  ✓ test_07_student_can_only_analyze_themselves     PASSED (Sinh viên chỉ phân tích chính mình)
+  ✓ test_08_attempt_competency_reads_platform_attempt_and_cites_pages PASSED (Đọc attempt thật và gợi ý slide)
 
-============================== 23/23 TESTS PASSED ==============================
+============================== 44/44 TESTS PASSED ==============================
 ```
 
 ---

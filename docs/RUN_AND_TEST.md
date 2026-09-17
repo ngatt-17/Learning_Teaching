@@ -176,7 +176,7 @@ Sign in with one of the seeded emails. In development, the sign-in screen shows 
 | Suite | Needs running | Command (from the folder shown, venv active) | Expected |
 |---|---|---|---|
 | Platform: access control + integration contract | PostgreSQL with seed data | `cd platform/backend` → `pytest tests/ -v` | **43 passed** |
-| AI service: quality, tutor, retrieval, competency, GenQuiz contract | nothing (Platform and LLM are faked) | `cd rag` → `pytest tests test_rag.py -v` | **42 passed** |
+| AI service: quality, tutor, retrieval, competency, GenQuiz contract (incl. self-study) | nothing (Platform and LLM are faked) | `cd rag` → `pytest tests test_rag.py -v` | **44 passed** |
 | AI retrieval benchmark (AI pair) | nothing | `cd rag` → `python eval_benchmark.py` | Hit@3 100%, MRR 0.95 |
 | Web type-check, lint, build | nothing | `cd web` → `npm run lint` and `npm run build` | no errors |
 | **End-to-end smoke test** | PostgreSQL + Platform API + AI service | repository root → `python scripts/smoke_e2e.py` | **25/25 checks passed** |

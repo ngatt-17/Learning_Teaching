@@ -23,7 +23,7 @@ AI service **không kết nối database** và **không bao giờ đọc ghi ch�
 
 Chạy test (offline, không gọi LLM thật — Platform được giả lập trong `tests/conftest.py` với JWT thật):
 ```bash
-pytest tests test_rag.py -v      # 42 tests
+pytest tests test_rag.py -v      # 44 tests
 ```
 
 ---
@@ -33,7 +33,7 @@ pytest tests test_rag.py -v      # 42 tests
 * **Thành viên A (Nga - `ngatt-17`):**
   - Phụ trách chính: **`GenQuiz` (Hệ thống tạo bài tập tự động 3 dạng)**.
   - Các file chính:
-    - [`quiz_generator.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/rag/quiz_generator.py): Lõi sinh đề từ slide, ngân hàng đề và ghi chú cá nhân; chuẩn hóa JSON đầu ra.
+    - [`quiz_generator.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/rag/quiz_generator.py): Lõi sinh đề từ slide (cho GV và SV tự ôn), ngân hàng đề và ghi chú cá nhân; chuẩn hóa JSON đầu ra.
     - [`run_quiz_demo.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/rag/run_quiz_demo.py): Script chạy thử demo độc lập in ra màn hình cực kỳ trực quan.
     - [`sample_lecture_cs101.txt`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/rag/sample_lecture_cs101.txt): Slide bài giảng mẫu CS101 về C/Pointers để chạy thử nghiệm.
     - [`routes/quiz_routes.py`](file:///c:/Users/Admin/Downloads/TT/CECS_AI_LearningHub/rag/routes/quiz_routes.py): Router cung cấp các API endpoint (bao gồm `POST /api/ai/gen-quiz` theo contract).
@@ -70,7 +70,7 @@ python rag/demo.py
 python -m unittest rag/test_rag.py
 ```
 
-### 4. Chạy toàn bộ test suite AI & Quality (8 test cases):
+### 4. Chạy toàn bộ test suite AI & Quality (14 test cases):
 ```bash
 pytest rag/tests/test_ai_quality.py -v
 ```
@@ -150,6 +150,7 @@ Mọi endpoint (trừ `/health`) cần `Authorization: Bearer <JWT từ Platform
 | `POST` | `/api/ai/gen-quiz` | Instructor / TA / Admin | **API Contract** sinh 3 dạng bài tập từ nội dung gửi lên |
 | `POST` | `/api/ai/analyze-competency` | Staff; sinh viên chỉ cho chính mình | Phân tích từ kết quả gửi lên |
 | `POST` | `/quiz/from-note` | Student | Sinh viên tự ôn tập từ ghi chú riêng (**không lưu DB**) |
+| `POST` | `/quiz/from-material/self-study` | Student | Sinh viên tự ôn tập từ bài giảng chính thức đã duyệt (**không lưu DB/draft store**, không sinh `draft_id`) |
 | `PATCH` | `/quiz/{draft_id}/publish` · `GET /quiz/{draft_id}` | Instructor / TA / Admin | (Legacy Day 2, bộ nhớ tạm) — cổng duyệt thật là `PATCH /courses/{id}/quizzes/{qid}/status` trên Platform |
 | `GET` | `/health` | All | Tình trạng service, `llm_configured` |
 
