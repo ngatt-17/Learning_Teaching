@@ -73,6 +73,8 @@ export interface QuizSummary {
   attempt_count?: number;
   student_count?: number;
   first_attempt_avg_ratio?: number | null;
+  created_at?: string;
+  created_by?: string | null;
 }
 
 export interface StudentQuestion {

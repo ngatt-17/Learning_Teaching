@@ -29,7 +29,7 @@ router = APIRouter(prefix="/courses/{course_id}/quizzes", tags=["Quizzes"])
 
 STAFF = ("instructor", "ta", "admin")
 # A comprehensive quiz must span at least this many already-studied topics.
-MIN_COMPREHENSIVE_TOPICS = 2
+MIN_COMPREHENSIVE_TOPICS = 1
 
 QuestionType = Literal["single_choice", "multiple_choice", "short_answer"]
 
@@ -278,6 +278,7 @@ def list_quizzes(course_id: str, current_user: UserPayload = Depends(require_cou
         cur.execute("""
             SELECT q.id, q.week_number, q.title, q.description, q.quiz_type, q.source, q.status,
                    q.points_per_question, q.time_limit_seconds, q.due_at, q.material_id,
+                   q.created_at, q.created_by,
                    COUNT(qq.id) AS question_count,
                    (SELECT COUNT(*) FROM quiz_attempts a
                      WHERE a.quiz_id = q.id AND a.student_id = %s) AS my_attempts,
@@ -289,13 +290,15 @@ def list_quizzes(course_id: str, current_user: UserPayload = Depends(require_cou
               AND q.status = 'published'
               AND (q.quiz_type = 'lesson' OR q.created_by = %s)
             GROUP BY q.id
-            ORDER BY q.week_number NULLS LAST, q.created_at;
+            ORDER BY q.created_at DESC;
         """, (current_user.user_id, current_user.user_id, course_id, current_user.user_id))
         rows = cur.fetchall()
     return [{
         **r,
         "id": str(r["id"]),
         "material_id": str(r["material_id"]) if r["material_id"] else None,
+        "created_by": str(r["created_by"]) if r["created_by"] else None,
+        "created_at": _iso(r["created_at"]),
         "due_at": _iso(r["due_at"]),
         "points_per_question": float(r["points_per_question"]),
         "max_score": round(float(r["points_per_question"]) * r["question_count"], 2),

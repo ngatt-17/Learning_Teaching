@@ -16,12 +16,14 @@ export function TutorPanel({
   chips,
   onSend,
   onCite,
+  width,
 }: {
   messages: TutorMessage[];
   pending: boolean;
   chips: TutorChip[];
   onSend: (text: string) => void;
   onCite: (citation: AiCitation) => void;
+  width?: number;
 }) {
   const [input, setInput] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -38,7 +40,11 @@ export function TutorPanel({
   };
 
   return (
-    <aside className="w-80 xl:w-96 shrink-0 h-full border-l border-slate-200 bg-white flex flex-col z-20 shadow-xs" aria-label="Trợ lý AI Socratic">
+    <aside
+      style={width ? { width: `${width}px` } : undefined}
+      className={`${width ? '' : 'w-80 xl:w-96'} shrink-0 h-full border-l border-slate-200 bg-white flex flex-col z-20 shadow-xs`}
+      aria-label="Trợ lý AI Socratic"
+    >
       <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-[#EDF2FA] border border-[#1E3A6E]/15 flex items-center justify-center">

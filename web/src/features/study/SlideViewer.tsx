@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, ExternalLink, FileText } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { openMaterialFile, platform } from '../../lib/api';
 import type { Material, MaterialPage } from '../../lib/types';
 import { errorMessage, useAsync } from '../../lib/useAsync';
@@ -12,8 +11,8 @@ export interface PagesPayload {
 }
 
 /**
- * Page-by-page reader for a material. Text comes from the Platform's extracted pages (the
- * same text the AI cites), so a citation "Trang 14" always opens the page it was taken from.
+ * Full vertical slide reader.
+ * Renders the original slide PDF or all pages stacked vertically so the user just scrolls down.
  */
 export function SlideViewer({
   courseId,
@@ -33,92 +32,184 @@ export function SlideViewer({
     [courseId, materialId],
   );
 
+  const hasFile = Boolean(data?.material.has_file);
+  const {
+    data: fileUrl,
+    loading: fileLoading,
+    error: fileErrorObj,
+  } = useAsync(
+    async () => {
+      if (!hasFile) return null;
+      return openMaterialFile(courseId, materialId);
+    },
+    [courseId, materialId, hasFile],
+  );
+
+  const fileError = fileErrorObj ? errorMessage(fileErrorObj) : null;
+  const [userViewMode, setUserViewMode] = useState<'original' | 'pages' | null>(null);
+  const viewMode = userViewMode ?? (hasFile && !fileError ? 'original' : 'pages');
+  const setViewMode = (mode: 'original' | 'pages') => setUserViewMode(mode);
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    if (data) onLoaded?.(data);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
-  const [fileError, setFileError] = useState<string | null>(null);
+    if (data) {
+      onLoaded?.(data);
+    }
+  }, [data, onLoaded]);
 
   const pages = data?.pages ?? [];
-  const index = Math.max(0, pages.findIndex((p) => p.page_number === page));
-  const current = pages[index];
 
+  // Scroll to requested page when in pages mode
   useEffect(() => {
-    if (current && current.page_number !== page) onPageChange(current.page_number);
-  }, [current, page, onPageChange]);
+    if (page && viewMode === 'pages') {
+      const el = document.getElementById(`slide-page-${page}`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }, [page, viewMode]);
 
   if (loading) return <Loading label="Đang mở tài liệu…" />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
   const material = data!.material;
 
-  const openFile = async () => {
-    setFileError(null);
-    try {
-      window.open(await openMaterialFile(courseId, materialId), '_blank', 'noopener');
-    } catch (err) {
-      setFileError(errorMessage(err));
+  const scrollToPage = (pageNum: number) => {
+    onPageChange(pageNum);
+    const el = document.getElementById(`slide-page-${pageNum}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  const openNewTab = () => {
+    if (fileUrl) {
+      window.open(fileUrl, '_blank', 'noopener');
     }
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
-      <div className="px-4 py-2.5 bg-white border-b border-slate-200 flex items-center justify-between gap-3 shrink-0">
+    <div className="flex-1 flex flex-col min-h-0 bg-slate-100">
+      {/* Top Header Bar */}
+      <div className="px-4 py-2.5 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
         <div className="min-w-0 flex items-center gap-2">
-          <FileText size={16} className="text-[#1E3A6E] shrink-0" />
+          <span className="text-xs font-bold uppercase tracking-wider text-[#1E3A6E] bg-blue-100 px-2 py-0.5 rounded">
+            Bài giảng
+          </span>
           <span className="text-sm font-bold text-slate-800 truncate">{material.title}</span>
           {material.status !== 'approved' && <MaterialStatusBadge status={material.status} />}
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {material.has_file && (
-            <button onClick={openFile} className="px-2 py-1 rounded-md text-xs font-semibold text-[#1E3A6E] hover:bg-[#EDF2FA] flex items-center gap-1 cursor-pointer">
-              <ExternalLink size={13} /> File gốc
+
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Toggle between original PDF and vertical extracted pages */}
+          {material.has_file && fileUrl && (
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setViewMode('original')}
+                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                  viewMode === 'original'
+                    ? 'bg-white text-[#1E3A6E] shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Slide gốc
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('pages')}
+                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
+                  viewMode === 'pages'
+                    ? 'bg-white text-[#1E3A6E] shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Các trang dọc ({pages.length})
+              </button>
+            </div>
+          )}
+
+          {/* Jump to page dropdown */}
+          {pages.length > 0 && (
+            <select
+              value={page ?? pages[0]?.page_number ?? ''}
+              onChange={(e) => scrollToPage(Number(e.target.value))}
+              className="text-xs border border-slate-300 rounded-md px-2 py-1 bg-white text-slate-700 cursor-pointer"
+              aria-label="Chọn trang slide"
+            >
+              {pages.map((p) => (
+                <option key={p.page_number} value={p.page_number}>
+                  Trang {p.page_number} / {pages.length}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* Open in new tab */}
+          {fileUrl && (
+            <button
+              type="button"
+              onClick={openNewTab}
+              className="px-2.5 py-1 text-xs font-semibold rounded border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 cursor-pointer"
+            >
+              Mở tab mới
             </button>
           )}
-          <button
-            disabled={index <= 0}
-            onClick={() => onPageChange(pages[index - 1].page_number)}
-            className="p-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            title="Trang trước"
-          >
-            <ChevronLeft size={15} />
-          </button>
-          <select
-            value={current?.page_number ?? ''}
-            onChange={(e) => onPageChange(Number(e.target.value))}
-            className="text-xs border border-slate-300 rounded-md px-2 py-1 bg-white"
-            aria-label="Chọn trang"
-          >
-            {pages.map((p) => (
-              <option key={p.page_number} value={p.page_number}>
-                Trang {p.page_number}
-              </option>
-            ))}
-          </select>
-          <button
-            disabled={index >= pages.length - 1}
-            onClick={() => onPageChange(pages[index + 1].page_number)}
-            className="p-1.5 rounded-md border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            title="Trang sau"
-          >
-            <ChevronRight size={15} />
-          </button>
         </div>
       </div>
-      {fileError && <p className="px-4 py-1 text-xs text-rose-700 bg-rose-50">{fileError}</p>}
-      <div className="flex-1 overflow-y-auto bg-slate-100 p-4 sm:p-8">
-        {current ? (
-          <article className="max-w-3xl mx-auto bg-white border border-slate-200 rounded-lg shadow-sm aspect-[16/10] min-h-[320px] p-8 sm:p-10 flex flex-col">
-            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              <span className="truncate">{material.title}</span>
-              <span className="shrink-0 text-[#C8232C]">Trang {current.page_number}</span>
-            </div>
-            <div className="mt-2 h-1 w-12 bg-[#C8232C] rounded" />
-            <p className="mt-6 text-base sm:text-lg leading-relaxed text-slate-800 whitespace-pre-wrap">
-              {current.content || <span className="italic text-slate-400">(Trang không có văn bản trích xuất được)</span>}
-            </p>
-          </article>
-        ) : (
-          <p className="text-center text-sm text-slate-500">Tài liệu chưa có trang nội dung.</p>
+
+      {fileError && <p className="px-4 py-1 text-xs text-rose-700 bg-rose-50 border-b border-rose-100">{fileError}</p>}
+
+      {/* Main Content Area */}
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
+        {fileLoading && (
+          <div className="p-8 text-center text-xs text-slate-500">
+            Đang tải slide gốc...
+          </div>
+        )}
+
+        {/* View Mode: Original PDF inside full iframe */}
+        {viewMode === 'original' && fileUrl && (
+          <iframe
+            src={fileUrl}
+            title={material.title}
+            className="w-full h-full border-0 bg-slate-100"
+          />
+        )}
+
+        {/* View Mode: Vertical stack of all slide pages */}
+        {(viewMode === 'pages' || !fileUrl) && (
+          <div
+            ref={scrollContainerRef}
+            className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6"
+          >
+            {pages.length === 0 ? (
+              <p className="text-center text-sm text-slate-500 py-12">Tài liệu chưa có trang nội dung.</p>
+            ) : (
+              pages.map((p) => (
+                <article
+                  key={p.page_number}
+                  id={`slide-page-${p.page_number}`}
+                  className="max-w-3xl mx-auto bg-white border border-slate-200 rounded-xl shadow-xs p-8 sm:p-10 flex flex-col transition-all hover:border-slate-300"
+                >
+                  <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-2.5">
+                    <span className="truncate text-slate-600">{material.title}</span>
+                    <span className="shrink-0 text-[#C8232C] bg-red-50 px-2 py-0.5 rounded border border-red-200">
+                      Trang {p.page_number} / {pages.length}
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1 w-10 bg-[#C8232C] rounded" />
+                  <p className="mt-5 text-sm sm:text-base leading-relaxed text-slate-800 whitespace-pre-wrap">
+                    {p.content || (
+                      <span className="italic text-slate-400">
+                        (Trang này không có văn bản văn bản trích xuất được)
+                      </span>
+                    )}
+                  </p>
+                </article>
+              ))
+            )}
+          </div>
         )}
       </div>
     </div>

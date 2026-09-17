@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  ArrowDown, ArrowLeft, Award, BookOpen, CheckCircle2, ChevronLeft, ChevronRight, FileText,
+  ArrowDown, ArrowLeft, Award, BookOpen, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, FileText,
   HelpCircle, Layers, Presentation, RotateCcw, XCircle,
 } from 'lucide-react';
 import { platform } from '../../lib/api';
@@ -9,7 +9,7 @@ import { useCurrentUser } from '../../lib/auth';
 import { isStaff } from '../../lib/roles';
 import type { AiCitation, AnswerValue, Attempt, Material, StudentQuiz, SubmitResult } from '../../lib/types';
 import { errorMessage, useAsync } from '../../lib/useAsync';
-import { formatDateTime, formatDeadline, formatDuration, formatScore, formatStarted } from '../../lib/format';
+import { formatDateTime, formatDeadline, formatDuration, formatScore } from '../../lib/format';
 import { ErrorState, InlineError, Loading } from '../../components/StateViews';
 import { ConfirmDialog, Dialog } from '../../components/Dialog';
 import { btn } from '../../components/styles';
@@ -105,6 +105,131 @@ function ExamView({ courseId, data }: { courseId: string; data: ExamData }) {
   const autoSubmitted = useRef(false);
   const centerRef = useRef<HTMLDivElement>(null);
 
+  // ── Resizable widths for Left (Sidebar) and Right (Tutor) panels ──
+  const [sidebarWidth, setSidebarWidth] = useState(290);
+  const [tutorWidth, setTutorWidth] = useState(360);
+  const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  const [isResizingTutor, setIsResizingTutor] = useState(false);
+
+  const startResizeSidebar = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingSidebar(true);
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientX - startX;
+      setSidebarWidth(Math.min(520, Math.max(230, startWidth + delta)));
+    };
+
+    const onMouseUp = () => {
+      setIsResizingSidebar(false);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }, [sidebarWidth]);
+
+  const startResizeTutor = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingTutor(true);
+    const startX = e.clientX;
+    const startWidth = tutorWidth;
+
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const delta = startX - moveEvent.clientX;
+      setTutorWidth(Math.min(650, Math.max(260, startWidth + delta)));
+    };
+
+    const onMouseUp = () => {
+      setIsResizingTutor(false);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }, [tutorWidth]);
+
+  // ── Filter materials to only those used to create this quiz ──
+  const relevantMaterials = useMemo(() => {
+    const ids = new Set<string>();
+    const weeks = new Set<number>();
+
+    // 1. Direct material_id on quiz
+    if (quiz.material_id) ids.add(quiz.material_id);
+
+    // 2. Direct week_number on quiz
+    if (quiz.week_number) weeks.add(quiz.week_number);
+
+    // 3. Citations from attempt answers if present
+    if (attempt) {
+      for (const a of attempt.answers) {
+        if (a.citation?.material_id) ids.add(a.citation.material_id);
+      }
+    }
+
+    // 4. If comprehensive quiz: extract referenced weeks from title (e.g., "tuần 1, 2")
+    const weekMatches = quiz.title.match(/tuần\s+([0-9,\s]+)/i);
+    if (weekMatches && weekMatches[1]) {
+      const parsedWeeks = weekMatches[1]
+        .split(',')
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => !isNaN(n));
+      parsedWeeks.forEach((w) => weeks.add(w));
+    }
+
+    const filtered = materials.filter(
+      (m) => ids.has(m.id) || (m.week_number !== null && weeks.has(m.week_number)),
+    );
+
+    return filtered.length > 0 ? filtered : materials;
+  }, [quiz, attempt, materials]);
+
+  // ── Group relevant materials by Module (week_number) ──
+  interface ModuleGroup {
+    key: string;
+    weekNumber: number | null;
+    title: string;
+    materials: Material[];
+  }
+
+  const modules = useMemo<ModuleGroup[]>(() => {
+    const map = new Map<string, ModuleGroup>();
+
+    for (const m of relevantMaterials) {
+      const key = m.week_number !== null ? `week-${m.week_number}` : 'general';
+      if (!map.has(key)) {
+        const title =
+          m.week_number !== null
+            ? `Module ${m.week_number}: Tuần ${m.week_number}${m.lesson_title ? ` — ${m.lesson_title}` : ''}`
+            : 'Tài liệu chung';
+        map.set(key, { key, weekNumber: m.week_number, title, materials: [] });
+      }
+      map.get(key)!.materials.push(m);
+    }
+
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.weekNumber === null) return 1;
+      if (b.weekNumber === null) return -1;
+      return a.weekNumber - b.weekNumber;
+    });
+  }, [relevantMaterials]);
+
+  // Collapsible state for modules in the Slides tree
+  const [userExpanded, setUserExpanded] = useState<Record<string, boolean>>({});
+
+  const isModuleExpanded = (modKey: string, modIdx: number, mod: ModuleGroup) => {
+    if (userExpanded[modKey] !== undefined) return userExpanded[modKey];
+    return modIdx === 0 || (slide ? mod.materials.some((m) => m.id === slide.materialId) : false);
+  };
+
+  const toggleModule = (key: string, currentVal: boolean) => {
+    setUserExpanded((prev) => ({ ...prev, [key]: !currentVal }));
+  };
+
   const tutor = useQuizTutor({ courseId, quizId: quiz.id });
   const reviewing = attempt !== null;
   const current = questions[Math.min(index, questions.length - 1)];
@@ -196,7 +321,10 @@ function ExamView({ courseId, data }: { courseId: string; data: ExamData }) {
   const openSlidesTab = () => {
     setLeftTab('slides');
     if (!slide) {
-      const first = materials.find((m) => m.id === quiz.material_id) ?? materials[0];
+      const first =
+        relevantMaterials.find((m) => m.id === quiz.material_id) ??
+        relevantMaterials[0] ??
+        materials[0];
       if (first) setSlide({ materialId: first.id, page: null });
     }
   };
@@ -310,62 +438,143 @@ function ExamView({ courseId, data }: { courseId: string; data: ExamData }) {
         </div>
       </header>
 
-      <div className="flex-1 w-full flex min-h-0 overflow-hidden">
+      <div className={`flex-1 w-full flex min-h-0 overflow-hidden relative ${isResizingSidebar || isResizingTutor ? 'select-none' : ''}`}>
         {/* ── Left column: Slides | Quizz, question palette, timer ───────────── */}
-        <aside className="w-64 sm:w-72 bg-white border-r border-slate-200 flex flex-col shrink-0 overflow-hidden z-20 shadow-xs h-full">
-          <div className="px-3.5 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center gap-2 text-[#1E3A6E] font-bold text-xs shrink-0">
-            <BookOpen size={16} />
-            <span>Nội dung bài học</span>
+        <aside
+          style={{ width: `${sidebarWidth}px` }}
+          className="bg-white border-r border-slate-200 flex flex-col shrink-0 overflow-hidden z-20 shadow-xs h-full"
+        >
+          <div className="px-3.5 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between text-[#1E3A6E] font-bold text-xs shrink-0">
+            <div className="flex items-center gap-2">
+              <BookOpen size={16} />
+              <span>Nội dung bài học</span>
+            </div>
+            <span className="text-[10px] text-slate-400 font-normal">Kéo để chỉnh rộng</span>
           </div>
 
           <div className="p-2 border-b border-slate-200 bg-slate-100/70 shrink-0">
             <div className="flex bg-white rounded-xl p-1 border border-slate-200 shadow-2xs gap-1">
               <button
+                type="button"
                 onClick={openSlidesTab}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold cursor-pointer transition-all ${
                   leftTab === 'slides' ? 'bg-[#1E3A6E] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
                 <Presentation size={15} />
-                <span>Slides</span>
+                <span>Slides ({relevantMaterials.length})</span>
               </button>
               <button
+                type="button"
                 onClick={() => setLeftTab('quizzes')}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold cursor-pointer transition-all ${
                   leftTab === 'quizzes' ? 'bg-[#1E3A6E] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
                 }`}
               >
                 <HelpCircle size={15} />
-                <span>Quizz</span>
+                <span>Quizz ({questions.length})</span>
               </button>
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 flex flex-col min-h-0">
             {leftTab === 'slides' ? (
-              <div className="space-y-1.5">
-                <div className="text-[10px] font-bold text-slate-400 uppercase px-1">Tài liệu đã duyệt</div>
-                {materials.length === 0 && <p className="text-xs text-slate-500 italic px-1">Chưa có tài liệu được duyệt.</p>}
-                {materials.map((m) => {
-                  const active = slide?.materialId === m.id;
-                  return (
-                    <button
-                      key={m.id}
-                      onClick={() => setSlide({ materialId: m.id, page: null })}
-                      className={`w-full text-left p-2.5 rounded-xl text-xs font-medium cursor-pointer transition-all flex items-start gap-2.5 border ${
-                        active
-                          ? 'bg-blue-50 border-blue-200 text-[#1E3A6E] font-bold shadow-2xs'
-                          : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
-                      }`}
-                    >
-                      <FileText size={16} className={active ? 'text-[#1E3A6E] shrink-0' : 'text-red-500 shrink-0'} />
-                      <div className="min-w-0">
-                        <p className="leading-snug line-clamp-2">{m.title}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{m.page_count} trang</p>
-                      </div>
-                    </button>
-                  );
-                })}
+              <div className="space-y-2 flex-1 flex flex-col min-h-0">
+                <div className="flex items-center justify-between px-1 shrink-0">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Slide nguồn của bài Quiz
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-semibold bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                    {relevantMaterials.length} slide
+                  </span>
+                </div>
+
+                <div className="space-y-2 flex-1 overflow-y-auto pr-0.5">
+                  {modules.length === 0 ? (
+                    <p className="text-xs text-slate-500 italic px-1">Chưa có slide liên kết.</p>
+                  ) : (
+                    modules.map((mod, modIdx) => {
+                      const isExpanded = isModuleExpanded(mod.key, modIdx, mod);
+                      const hasActive = slide ? mod.materials.some((m) => m.id === slide.materialId) : false;
+
+                      return (
+                        <div key={mod.key} className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+                          {/* Module Header (Click to expand/collapse) */}
+                          <button
+                            type="button"
+                            onClick={() => toggleModule(mod.key, isExpanded)}
+                            className={`w-full px-3 py-2 text-left flex items-center justify-between gap-2 cursor-pointer transition-colors ${
+                              hasActive
+                                ? 'bg-blue-50/70 text-[#1E3A6E] font-bold'
+                                : 'bg-slate-50 hover:bg-slate-100 text-slate-800 font-semibold'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Layers size={14} className={hasActive ? 'text-[#1E3A6E] shrink-0' : 'text-slate-500 shrink-0'} />
+                              <span className="text-xs truncate">{mod.title}</span>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <span className="text-[10.5px] text-slate-400 font-normal">({mod.materials.length})</span>
+                              {isExpanded ? (
+                                <ChevronDown size={14} className="text-slate-400" />
+                              ) : (
+                                <ChevronRight size={14} className="text-slate-400" />
+                              )}
+                            </div>
+                          </button>
+
+                          {/* Collapsible Slide List inside Module */}
+                          {isExpanded && (
+                            <div className="p-1.5 space-y-1 bg-slate-50/40 border-t border-slate-100">
+                              {mod.materials.map((m) => {
+                                const active = slide?.materialId === m.id;
+                                return (
+                                  <button
+                                    key={m.id}
+                                    type="button"
+                                    onClick={() => setSlide({ materialId: m.id, page: null })}
+                                    className={`w-full text-left p-2 rounded-lg text-xs cursor-pointer transition-all flex items-start gap-2 border ${
+                                      active
+                                        ? 'bg-white border-[#1E3A6E]/30 text-[#1E3A6E] font-bold shadow-2xs ring-1 ring-[#1E3A6E]/20'
+                                        : 'bg-white/80 border-slate-200/80 hover:bg-white text-slate-700'
+                                    }`}
+                                  >
+                                    <FileText
+                                      size={14}
+                                      className={active ? 'text-[#1E3A6E] shrink-0 mt-0.5' : 'text-red-500 shrink-0 mt-0.5'}
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="leading-snug line-clamp-2">{m.title}</p>
+                                      <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-1">
+                                        <span>{m.page_count} trang</span>
+                                        {m.status === 'approved' && (
+                                          <span className="text-emerald-700 bg-emerald-50 px-1.5 py-px rounded border border-emerald-200">
+                                            Đã duyệt
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <div className="pt-2 border-t border-slate-200 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setLeftTab('quizzes')}
+                    className="w-full py-2 px-3 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <HelpCircle size={14} className="text-[#1E3A6E]" />
+                    <span>Quay lại làm Quiz</span>
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-3 flex-1 flex flex-col min-h-0">
@@ -439,17 +648,7 @@ function ExamView({ courseId, data }: { courseId: string; data: ExamData }) {
                     </div>
                   )}
 
-                  {!reviewing ? (
-                    <button
-                      type="button"
-                      onClick={requestSubmit}
-                      disabled={submitting || staffPreview}
-                      title={staffPreview ? 'Chế độ xem trước không nộp bài' : undefined}
-                      className="w-full py-2.5 bg-[#1E3A6E] hover:bg-[#14274E] text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {submitting ? 'Đang nộp…' : 'Nộp bài kiểm tra'}
-                    </button>
-                  ) : (
+                  {reviewing && (
                     <div className="space-y-1.5">
                       <button
                         type="button"
@@ -475,6 +674,13 @@ function ExamView({ courseId, data }: { courseId: string; data: ExamData }) {
           </div>
         </aside>
 
+        {/* Resizer Handle: Left Sidebar <-> Center */}
+        <div
+          onMouseDown={startResizeSidebar}
+          title="Kéo sang trái/phải để điều chỉnh chiều rộng"
+          className="w-1.5 hover:w-2 hover:bg-[#1E3A6E] active:bg-[#1E3A6E] bg-slate-200 cursor-col-resize shrink-0 transition-all z-20"
+        />
+
         {/* ── Centre: slide reader or questions / review ───────────────────── */}
         <main className="flex-1 h-full min-w-0 flex flex-col overflow-hidden bg-slate-50 relative">
           {leftTab === 'slides' ? (
@@ -491,19 +697,22 @@ function ExamView({ courseId, data }: { courseId: string; data: ExamData }) {
           ) : (
             <div ref={centerRef} className="flex-1 h-full overflow-y-auto px-4 sm:px-7 py-4 space-y-4 scroll-smooth">
               <div className="border-b border-slate-200 pb-2.5">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">{shortTitle}</h2>
-                  <span className="text-xs text-slate-500 font-medium shrink-0">Hạn nộp: {formatDeadline(quiz.due_at)}</span>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">{shortTitle}</h2>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-xs font-semibold px-2 py-0.5 bg-slate-100 text-slate-700 rounded border border-slate-200">
+                      Điểm tối đa: {formatScore(maxScore)}
+                    </span>
+                    {quiz.due_at && (
+                      <span className="text-xs text-slate-500 font-medium">Hạn nộp: {formatDeadline(quiz.due_at)}</span>
+                    )}
+                  </div>
                 </div>
-                <p className="text-[11.5px] text-slate-500 mt-0.5">
-                  {attempt ? `Đã nộp: ${formatDateTime(attempt.submitted_at)}` : `Đã bắt đầu: ${formatStarted(draft.startedAt)}`}
-                  {' • '}Điểm tối đa: {formatScore(maxScore)}
-                </p>
-                <h3 className="text-sm font-bold text-slate-800 mt-1.5">Hướng Dẫn Kiểm Tra</h3>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  {quiz.description ||
-                    'Hãy đọc kỹ nội dung từng câu hỏi và chọn phương án chính xác nhất. Bạn có thể sử dụng bảng danh sách câu hỏi ở bên trái để chuyển nhanh giữa các câu.'}
-                </p>
+                {attempt && (
+                  <p className="text-[11.5px] text-slate-500 mt-1">
+                    Đã nộp: {formatDateTime(attempt.submitted_at)}
+                  </p>
+                )}
               </div>
 
               <InlineError message={submitError} />
@@ -604,14 +813,7 @@ function ExamView({ courseId, data }: { courseId: string; data: ExamData }) {
                           <ChevronRight size={16} />
                         </button>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={requestSubmit}
-                          disabled={submitting || staffPreview}
-                          className="px-5 py-2 rounded-lg bg-[#1E3A6E] hover:bg-[#14274E] text-xs font-bold text-white transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
-                        >
-                          Nộp bài kiểm tra
-                        </button>
+                        <span className="text-xs text-slate-400 font-medium italic">Câu hỏi cuối cùng</span>
                       )}
                     </div>
                   </div>
@@ -632,7 +834,7 @@ function ExamView({ courseId, data }: { courseId: string; data: ExamData }) {
                       disabled={submitting || staffPreview}
                       className="px-6 py-2.5 bg-[#1E3A6E] hover:bg-[#14274E] text-white text-xs sm:text-sm font-bold rounded-xl shadow-md transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {submitting ? 'Đang nộp…' : 'Hoàn thành & Nộp bài'}
+                      {submitting ? 'Đang nộp…' : 'Nộp bài kiểm tra'}
                     </button>
                   </div>
                 ) : (
@@ -661,8 +863,16 @@ function ExamView({ courseId, data }: { courseId: string; data: ExamData }) {
           )}
         </main>
 
+        {/* Resizer Handle: Center <-> Right Tutor */}
+        <div
+          onMouseDown={startResizeTutor}
+          title="Kéo sang trái/phải để điều chỉnh chiều rộng Trợ lý AI"
+          className="w-1.5 hover:w-2 hover:bg-[#1E3A6E] active:bg-[#1E3A6E] bg-slate-200 cursor-col-resize shrink-0 transition-all z-20"
+        />
+
         {/* ── Right column: Socratic tutor ─────────────────────────────────── */}
         <TutorPanel
+          width={tutorWidth}
           messages={tutor.messages}
           pending={tutor.pending}
           chips={chips}

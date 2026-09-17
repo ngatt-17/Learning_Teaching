@@ -386,7 +386,7 @@ def test_25_instructor_cannot_publish_a_quiz_with_no_questions():
 def test_26_comprehensive_quiz_requires_two_unlocked_topics():
     token = get_token_for(STUDENT_A_EMAIL)
     one = client.post(f"/courses/{COURSE_A_ID}/quizzes/comprehensive",
-                      headers=auth_headers(token), json={"week_numbers": [1]})
+                      headers=auth_headers(token), json={"week_numbers": []})
     assert one.status_code == 400, one.text
 
     locked = client.post(f"/courses/{COURSE_A_ID}/quizzes/comprehensive",
