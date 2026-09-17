@@ -11,6 +11,7 @@ Instructor / TA:
 
 Student (private — không lưu DB):
   POST /quiz/from-note            — Gen từ ghi chú riêng
+  POST /quiz/from-material/self-study — Gen từ bài giảng đã duyệt để tự ôn tập
 
 Team 1 & Team 2 Contract:
   POST /api/ai/gen-quiz           — Sinh bài tập 3 dạng chuẩn hóa JSON
@@ -82,6 +83,15 @@ class FromNoteRequest(BaseModel):
                               description="Student's private note content")
     count: int = Field(default=3, ge=1, le=20)
     types: list[str] = Field(default=["single_choice", "short_answer"])
+
+
+class SelfStudyRequest(BaseModel):
+    material_id: str = Field(..., examples=["20000000-0000-0000-0000-000000000001"])
+    course_id: str   = Field(..., examples=["10000000-0000-0000-0000-000000000001"])
+    topic: str       = Field(default="", examples=["variables and data types"])
+    difficulty: Literal["easy", "medium", "hard"] = "medium"
+    question_type: str = Field(default="mixed", examples=["mixed"])
+    count: int       = Field(default=5, ge=1, le=20)
 
 
 class GenQuizStandardRequest(BaseModel):
@@ -244,6 +254,70 @@ def gen_from_note(
         "privacy_notice": (
             "These questions were generated from your private notes "
             "and are not stored on the server."
+        ),
+    }
+
+
+# ── Student: Gen từ bài giảng chính thức để tự ôn tập (PRIVATE — KHÔNG LƯU DB) ──
+@router.post("/from-material/self-study")
+def gen_from_material_self_study(
+    body: SelfStudyRequest,
+    current_user: AuthUser = Depends(get_current_user),
+):
+    """
+    Student: generate self-study quiz from an approved course material.
+
+    Privacy guarantee:
+    - Returned directly to the student only.
+    - NOT saved to any database, draft store, or audit log.
+    - No draft_id is created.
+    - Source is official course material (not private notes).
+    """
+    if current_user.role != "student":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="This endpoint is for students only.")
+    _require_llm()
+
+    payload = platform_client.get_material_pages(body.course_id, body.material_id, current_user.token)
+    material = payload["material"]
+    if material.get("status") != "approved" or not material.get("approved_for_ai"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Material is not approved for AI use.")
+    pages = [p for p in payload.get("pages", []) if p.get("content", "").strip()]
+    if not pages:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Material has no extracted text.")
+
+    try:
+        questions = qg.gen_from_material_self_study(
+            material_id=body.material_id,
+            topic=body.topic,
+            difficulty=body.difficulty,
+            question_type=body.question_type,
+            count=body.count,
+            material={
+                "title": material["title"],
+                "approved_for_ai": True,
+                "chunks": [{"page": p["page_number"], "text": p["content"]} for p in pages],
+            },
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    _reject_failed_generation(questions)
+
+    return {
+        "self_study": True,
+        "stored": False,
+        "owner_id": current_user.user_id,
+        "course_id": body.course_id,
+        "material_title": material["title"],
+        "count": len(questions),
+        "questions": questions,
+        "privacy_notice": (
+            f"These questions were generated from the approved course material "
+            f"'{material['title']}' for your personal study only. "
+            "They are not stored on the server and cannot be accessed by "
+            "your instructor, other students, or administrators."
         ),
     }
 

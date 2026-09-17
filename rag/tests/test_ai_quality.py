@@ -186,6 +186,41 @@ def test_T06_genquiz_from_note_not_stored(headers, mock_llm):
     assert len(qg._DRAFT_STORE) == before_count, "PRIVACY FAILURE: from-note đã ghi vào draft store!"
 
 
+def test_T06b_genquiz_self_study_not_stored(headers, mock_llm):
+    """Student tự gen quiz từ slide/bài giảng đã duyệt → không lưu vào store, không tạo draft_id."""
+    mock_llm.quiz_items = MCQ_ITEMS[:2]
+    body = {
+        "material_id": "mat-intro-001",
+        "course_id": "course-a",
+        "topic": "Variables",
+        "difficulty": "medium",
+        "count": 2,
+    }
+    before_count = len(qg._DRAFT_STORE)
+    resp = client.post("/quiz/from-material/self-study", json=body, headers=headers("student_a"))
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+
+    assert data.get("stored") is False, "stored phải là False"
+    assert data.get("self_study") is True, "self_study phải là True"
+    assert data.get("course_id") == "course-a"
+    assert "privacy_notice" in data
+    assert "draft_id" not in data, "Self-study không được sinh draft_id"
+    assert len(data["questions"]) >= 1
+    assert len(qg._DRAFT_STORE) == before_count, "PRIVACY FAILURE: self-study đã ghi vào draft store!"
+
+
+def test_T06c_instructor_cannot_use_self_study(headers):
+    """Instructor gọi /quiz/from-material/self-study → 403 Forbidden (chỉ dành cho student)."""
+    body = {
+        "material_id": "mat-intro-001",
+        "course_id": "course-a",
+        "count": 2,
+    }
+    resp = client.post("/quiz/from-material/self-study", json=body, headers=headers("instructor"))
+    assert resp.status_code == 403, f"Instructor phải nhận 403 nhưng nhận {resp.status_code}"
+
+
 # ═════════════════════════════════════════════════════════════════════════
 # T07 — Student B không thể hỏi về course-a (cross-course isolation)
 # ═════════════════════════════════════════════════════════════════════════

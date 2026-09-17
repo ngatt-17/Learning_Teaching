@@ -504,7 +504,46 @@ def gen_from_note(
     return _call_llm_for_quiz(prompt, default_source="PrivateStudyNotes", target_qtype=target_type)
 
 
-# ── 4. API Contract Endpoint cho Team 1 & Team 2 (POST /api/ai/gen-quiz) ───
+# ── 4. Gen từ bài giảng chính thức để sinh viên tự ôn (STUDENT PRIVATE — KHÔNG LƯU DB) ─
+def gen_from_material_self_study(
+    material_id: str,
+    topic: str = "",
+    difficulty: Difficulty = "medium",
+    question_type: str = "mixed",
+    count: int = 5,
+    material: dict | None = None,
+) -> list[Question]:
+    """
+    Sinh viên tự gen quiz từ học liệu chính thức đã duyệt để tự ôn tập.
+    TUYỆT ĐỐI KHÔNG LƯU VÀO _DRAFT_STORE HOẶC DATABASE NÀO.
+    """
+    count = min(count, MAX_QUIZ_COUNT)
+    mat = material if material is not None else get_material(material_id)
+    if not mat:
+        raise ValueError(f"Material '{material_id}' not found.")
+    if not mat.get("approved_for_ai"):
+        raise ValueError(f"Material '{material_id}' is not approved for AI use.")
+
+    if question_type in ("single_choice", "mcq"):
+        requested_types = ["single_choice"]
+    elif question_type in ("multiple_choice",):
+        requested_types = ["multiple_choice"]
+    elif question_type in ("short_answer", "short"):
+        requested_types = ["short_answer"]
+    elif question_type in ("truefalse",):
+        requested_types = ["single_choice"]
+    else:
+        requested_types = ["single_choice", "multiple_choice", "short_answer"]
+
+    context = "\n\n".join(f"[Page {c['page']}] {c['text']}" for c in mat["chunks"])
+    source_file = mat.get("title") or f"{material_id}.pdf"
+    prompt = _build_quiz_prompt(context, count, requested_types, difficulty, topic, source_file)
+
+    # Trả thẳng list[Question] — KHÔNG tạo draft_id, KHÔNG ghi _DRAFT_STORE
+    return _call_llm_for_quiz(prompt, default_source=source_file, target_qtype=question_type)
+
+
+# ── 5. API Contract Endpoint cho Team 1 & Team 2 (POST /api/ai/gen-quiz) ───
 def gen_quiz_standard(
     lesson_content: str,
     topic: str = "",
