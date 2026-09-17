@@ -71,7 +71,7 @@ def root():
             "gen_quiz_from_material": "POST /quiz/from-material",
             "gen_quiz_from_bank": "POST /quiz/from-bank",
             "gen_quiz_from_note": "POST /quiz/from-note (student private)",
-            "gen_quiz_self_study": "POST /quiz/from-material/self-study (student private, no DB)",
+            "gen_quiz_self_study": "POST /quiz/from-material/self-study (student self-study, AI stateless, saved by Platform for analytics, hidden from instructor)",
             "attempt_competency": "POST /api/ai/courses/{course_id}/quizzes/{quiz_id}/competency",
         },
     }

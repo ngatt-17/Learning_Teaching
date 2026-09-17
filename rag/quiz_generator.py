@@ -10,10 +10,12 @@ Mỗi câu hỏi đều có:
   - citation: {"source_file": str, "page": int, "evidence_snippet": str}
   - explanation: lời giải thích dựa trên tài liệu
 
-3 luồng sử dụng:
-  1. gen_from_material()       — Giảng viên/TA: từ bài giảng đã duyệt (Draft -> Publish)
-  2. gen_from_question_bank()  — Giảng viên/TA: từ ngân hàng đề raw text
-  3. gen_from_note()           — Sinh viên: từ ghi chú cá nhân (PRIVATE: KHÔNG LƯU SERVER)
+4 luồng sử dụng:
+  1. gen_from_material()            — Giảng viên/TA: từ bài giảng đã duyệt (Draft -> Publish)
+  2. gen_from_question_bank()       — Giảng viên/TA: từ ngân hàng đề raw text
+  3. gen_from_note()                — Sinh viên: từ ghi chú cá nhân (PRIVATE: KHÔNG LƯU SERVER)
+  4. gen_from_material_self_study() — Sinh viên: từ bài giảng đã duyệt để tự ôn tập
+                                       (AI không lưu; trả về để Platform lưu phân tích năng lực)
 """
 from __future__ import annotations
 import json
@@ -504,7 +506,8 @@ def gen_from_note(
     return _call_llm_for_quiz(prompt, default_source="PrivateStudyNotes", target_qtype=target_type)
 
 
-# ── 4. Gen từ bài giảng chính thức để sinh viên tự ôn (STUDENT PRIVATE — KHÔNG LƯU DB) ─
+# ── 4. Gen từ bài giảng chính thức để sinh viên tự ôn tập ───────────────────────────────
+# AI không lưu _DRAFT_STORE. Trả về để Platform lưu phục vụ phân tích năng lực (ẩn với GV).
 def gen_from_material_self_study(
     material_id: str,
     topic: str = "",
@@ -515,7 +518,9 @@ def gen_from_material_self_study(
 ) -> list[Question]:
     """
     Sinh viên tự gen quiz từ học liệu chính thức đã duyệt để tự ôn tập.
-    TUYỆT ĐỐI KHÔNG LƯU VÀO _DRAFT_STORE HOẶC DATABASE NÀO.
+    AI service không lưu vào _DRAFT_STORE hoặc database.
+    Trả về list[Question] kèm material_id để Platform lưu lại phục vụ phân tích năng lực.
+    Kết quả phải ẩn với giảng viên — quyền truy cập do Platform kiểm soát.
     """
     count = min(count, MAX_QUIZ_COUNT)
     mat = material if material is not None else get_material(material_id)

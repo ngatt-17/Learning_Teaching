@@ -9,9 +9,11 @@ Instructor / TA:
                                     a draft and PATCH .../status publishes it
   GET /quiz/{draft_id}            — (legacy Day 2) Xem draft
 
-Student (private — không lưu DB):
-  POST /quiz/from-note            — Gen từ ghi chú riêng
+Student:
+  POST /quiz/from-note            — Gen từ ghi chú riêng (PRIVATE — không lưu DB)
   POST /quiz/from-material/self-study — Gen từ bài giảng đã duyệt để tự ôn tập
+                                        (AI không lưu; Platform lưu để phân tích năng lực;
+                                         kết quả phải ẩn với giảng viên)
 
 Team 1 & Team 2 Contract:
   POST /api/ai/gen-quiz           — Sinh bài tập 3 dạng chuẩn hóa JSON
@@ -258,20 +260,19 @@ def gen_from_note(
     }
 
 
-# ── Student: Gen từ bài giảng chính thức để tự ôn tập (PRIVATE — KHÔNG LƯU DB) ──
+# ── Student: Gen từ bài giảng chính thức để tự ôn tập ──────────────────────────
+# AI service không lưu. Platform lưu kết quả để phân tích năng lực (ẩn với GV).
 @router.post("/from-material/self-study")
 def gen_from_material_self_study(
     body: SelfStudyRequest,
     current_user: AuthUser = Depends(get_current_user),
 ):
     """
-    Student: generate self-study quiz from an approved course material.
-
-    Privacy guarantee:
-    - Returned directly to the student only.
-    - NOT saved to any database, draft store, or audit log.
-    - No draft_id is created.
-    - Source is official course material (not private notes).
+    Student: self-study quiz from approved course material.
+    - AI service does not store the result (no draft_id, no _DRAFT_STORE write).
+    - The response includes material_id so the Platform can persist the session
+      for competency analysis.
+    - Results must be hidden from instructors — privacy enforced at the Platform layer.
     """
     if current_user.role != "student":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
@@ -307,17 +308,17 @@ def gen_from_material_self_study(
 
     return {
         "self_study": True,
-        "stored": False,
         "owner_id": current_user.user_id,
+        "material_id": body.material_id,
         "course_id": body.course_id,
         "material_title": material["title"],
         "count": len(questions),
         "questions": questions,
         "privacy_notice": (
             f"These questions were generated from the approved course material "
-            f"'{material['title']}' for your personal study only. "
-            "They are not stored on the server and cannot be accessed by "
-            "your instructor, other students, or administrators."
+            f"'{material['title']}'. The AI service does not store them; "
+            "the Platform may save this session for competency analysis. "
+            "Results are private to you and must not be visible to instructors."
         ),
     }
 

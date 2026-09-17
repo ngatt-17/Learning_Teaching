@@ -186,8 +186,8 @@ def test_T06_genquiz_from_note_not_stored(headers, mock_llm):
     assert len(qg._DRAFT_STORE) == before_count, "PRIVACY FAILURE: from-note đã ghi vào draft store!"
 
 
-def test_T06b_genquiz_self_study_not_stored(headers, mock_llm):
-    """Student tự gen quiz từ slide/bài giảng đã duyệt → không lưu vào store, không tạo draft_id."""
+def test_T06b_genquiz_self_study_response_shape(headers, mock_llm):
+    """Student tự gen quiz từ slide/bài giảng đã duyệt: AI không lưu store, trả về đúng schema cho Platform."""
     mock_llm.quiz_items = MCQ_ITEMS[:2]
     body = {
         "material_id": "mat-intro-001",
@@ -201,7 +201,8 @@ def test_T06b_genquiz_self_study_not_stored(headers, mock_llm):
     assert resp.status_code == 200, resp.text
     data = resp.json()
 
-    assert data.get("stored") is False, "stored phải là False"
+    assert "stored" not in data, "Trường 'stored' không còn tồn tại trong response self-study"
+    assert data.get("material_id") == "mat-intro-001", "material_id phải được trả về để Platform lưu"
     assert data.get("self_study") is True, "self_study phải là True"
     assert data.get("course_id") == "course-a"
     assert "privacy_notice" in data

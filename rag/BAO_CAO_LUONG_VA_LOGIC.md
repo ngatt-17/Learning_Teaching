@@ -85,15 +85,15 @@ sequenceDiagram
     end
 ```
 
-### 2.1b Luồng Sinh Đề Tự Ôn Tập Cho Sinh Viên (Student Private Self-Study)
+### 2.1b Luồng Sinh Đề Tự Ôn Tập Cho Sinh Viên (Student Self-Study Quiz)
 Khác với luồng sinh đề của Giảng viên (`POST /quiz/from-material`) có sinh `draft_id` và lưu vào `_DRAFT_STORE`, luồng tự ôn tập của Sinh viên được thiết kế riêng:
 * **Endpoint:** `POST /quiz/from-material/self-study`
 * **Hàm lõi:** `gen_from_material_self_study()` trong `rag/quiz_generator.py`.
 * **Phân quyền:** Chỉ cho phép Sinh viên (`role == "student"`), trả `403 Forbidden` nếu là Giảng viên.
-* **Nguyên tắc bảo vệ dữ liệu (Privacy-First):**
+* **Nguyên tắc bảo vệ dữ liệu & phân tích năng lực:**
   1. Sử dụng token của sinh viên để đọc học liệu đã duyệt qua `platform_client.get_material_pages()`.
-  2. Tuyệt đối **không sinh `draft_id`**, không ghi vào `_DRAFT_STORE` hay bất kỳ cơ sở dữ liệu nào.
-  3. Trả thẳng danh sách câu hỏi về cho sinh viên với cờ `stored: false`, `self_study: true` và cam kết bảo mật `privacy_notice`. Giảng viên và quản trị viên không thể truy cập.
+  2. AI service (`rag/`) hoàn toàn stateless: **không sinh `draft_id`**, không ghi vào `_DRAFT_STORE` hay bất kỳ cơ sở dữ liệu nội bộ nào của AI.
+  3. Trả về cấu trúc câu hỏi kèm `material_id`, `self_study: true` và `privacy_notice`. Platform nhận payload này để lưu lịch sử làm bài phục vụ phân tích năng lực (competency analysis) cá nhân của sinh viên, và kết quả này bắt buộc phải **ẩn hoàn toàn với giảng viên**.
 
 ---
 
@@ -415,8 +415,8 @@ Dưới đây là 3 Endpoint cốt lõi của Team 3 (chạy tại port **8001**
   ```json
   {
     "self_study": true,
-    "stored": false,
     "owner_id": "student_001",
+    "material_id": "mat-intro-001",
     "course_id": "course-a",
     "material_title": "Introduction to Programming — Week 1",
     "count": 5,
@@ -436,7 +436,7 @@ Dưới đây là 3 Endpoint cốt lõi của Team 3 (chạy tại port **8001**
         }
       }
     ],
-    "privacy_notice": "These questions were generated from the approved course material 'Introduction to Programming — Week 1' for your personal study only. They are not stored on the server and cannot be accessed by your instructor, other students, or administrators."
+    "privacy_notice": "These questions were generated from the approved course material 'Introduction to Programming — Week 1'. The AI service does not store them; the Platform may save this session for competency analysis. Results are private to you and must not be visible to instructors."
   }
   ```
 
@@ -458,7 +458,7 @@ Dưới đây là 3 Endpoint cốt lõi của Team 3 (chạy tại port **8001**
   ✓ test_T04b_genquiz_is_503_without_llm_and_400_for_draft_material PASSED (Xử lý lỗi LLM & slide draft)
   ✓ test_T05_genquiz_publish_requires_instructor    PASSED (Chặn sinh viên publish đề - HTTP 403)
   ✓ test_T06_genquiz_from_note_not_stored           PASSED (Ghi chú cá nhân không lưu DB)
-  ✓ test_T06b_genquiz_self_study_not_stored        PASSED (Sinh viên tự ôn từ slide: không lưu DB, self_study=True)
+  ✓ test_T06b_genquiz_self_study_response_shape   PASSED (Sinh viên tự ôn từ slide: payload chuẩn cho Platform lưu, ẩn với GV)
   ✓ test_T06c_instructor_cannot_use_self_study     PASSED (Chặn giảng viên gọi self-study - HTTP 403)
 
 [KHỐI 2: GROUNDED CHAT RAG, QUIZ TUTOR & RETRIEVAL — 26 TESTS PASSED]
