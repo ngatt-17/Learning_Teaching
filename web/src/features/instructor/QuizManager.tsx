@@ -9,8 +9,6 @@ import { useCourse } from '../courses/CourseLayout';
 import { Empty, ErrorState, InlineError, Loading } from '../../components/StateViews';
 import { AiDraftBadge } from '../../components/Badges';
 import { ConfirmDialog } from '../../components/Dialog';
-import { btn } from '../../components/styles';
-import { ComprehensiveBuilder } from '../student/ComprehensiveBuilder';
 
 type QuizFilter = 'all' | 'published' | 'draft';
 
@@ -18,8 +16,7 @@ export function QuizManager() {
   const course = useCourse();
   const navigate = useNavigate();
 
-  // Trạng thái đóng/mở của 2 thanh theo yêu cầu: mặc định ẩn đi, bấm vào mới hiện ra
-  const [isBuilderOpen, setIsBuilderOpen] = useState(false);
+  // Trạng thái đóng/mở của danh sách bài Quiz: mặc định ẩn đi, bấm vào mới hiện ra
   const [isListOpen, setIsListOpen] = useState(false);
 
   const [filter, setFilter] = useState<QuizFilter>('all');
@@ -70,33 +67,22 @@ export function QuizManager() {
   return (
     <div className="space-y-4">
       {/* ── Top Header Bar ───────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-3">
-        <div>
-          <h2 className="text-xl font-bold text-slate-800">Quiz & ngân hàng câu hỏi</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {draftCount} quiz nháp chờ duyệt • Quản lý trạng thái phát hành, xem báo cáo và tạo quiz môn học.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => navigate('new')}
-          className={btn.primary}
-        >
-          <Plus size={14} />
-          <span>Tạo quiz</span>
-        </button>
+      <div className="border-b border-slate-200 pb-3">
+        <h2 className="text-xl font-bold text-slate-800">Quiz & ngân hàng câu hỏi</h2>
+        <p className="text-xs text-slate-500 mt-0.5">
+          {draftCount} quiz nháp chờ duyệt • Quản lý trạng thái phát hành, xem báo cáo và tạo quiz môn học.
+        </p>
       </div>
 
       <InlineError message={actionError} />
 
       {/* ─────────────────────────────────────────────────────────────
-          1. THANH TẠO QUIZ TỔNG HỢP THEO CHỦ ĐỀ (Ẩn/Hiện khi bấm)
+          1. THANH TẠO QUIZ TỔNG HỢP THEO CHỦ ĐỀ (Trỏ đến trang tạo quiz tổng hợp)
       ───────────────────────────────────────────────────────────── */}
       <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs transition-all">
-        <button
-          type="button"
-          onClick={() => setIsBuilderOpen(!isBuilderOpen)}
-          className="w-full p-4 bg-white hover:bg-slate-50/90 flex items-center justify-between gap-3 text-left transition-colors cursor-pointer select-none"
+        <div
+          onClick={() => navigate(`/courses/${course.id}/quizzes/new?week=`)}
+          className="w-full p-4 bg-white hover:bg-slate-50/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left transition-colors cursor-pointer select-none"
         >
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
@@ -106,27 +92,21 @@ export function QuizManager() {
               <h3 className="font-bold text-base text-slate-900">Quiz tổng hợp theo chủ đề</h3>
             </div>
             <p className="text-xs text-slate-500">
-              Chọn linh hoạt theo Module & Slide bài giảng • Hỗ trợ AI gợi ý tạo đề kiểm tra đa chủ đề
+              Chọn linh hoạt theo Module & Slide bài giảng • Soạn thảo câu hỏi, duyệt nội dung và phát hành cho sinh viên
             </p>
           </div>
-          <span className="text-xs font-semibold px-3 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200 shrink-0">
-            {isBuilderOpen ? 'Thu gọn ▲' : 'Bấm để tạo đề ▼'}
-          </span>
-        </button>
-
-        {isBuilderOpen && (
-          <div className="p-5 border-t border-slate-200 bg-slate-50/30">
-            <ComprehensiveBuilder
-              courseId={course.id}
-              quizzes={activeQuizzes}
-              compact
-              onCreated={(quizId) => {
-                reload();
-                navigate(`/courses/${course.id}/quizzes/${quizId}/edit`);
-              }}
-            />
-          </div>
-        )}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/courses/${course.id}/quizzes/new?week=`);
+            }}
+            className="px-3.5 py-2 rounded-lg bg-[#1E3A6E] hover:bg-[#14274E] text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer shrink-0 flex items-center gap-1.5"
+          >
+            <Plus size={14} />
+            <span>Tạo quiz tổng hợp</span>
+          </button>
+        </div>
       </div>
 
       {/* ─────────────────────────────────────────────────────────────

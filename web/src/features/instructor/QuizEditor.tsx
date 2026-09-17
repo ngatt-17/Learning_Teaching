@@ -79,7 +79,7 @@ function QuizForm({ materials, existing }: { materials: Material[]; existing: Ma
   const moduleLesson = availableSlides.find((m) => m.lesson_title)?.lesson_title;
   const moduleTitle = targetWeek !== null
     ? `Week ${String(targetWeek).padStart(2, '0')}${moduleLesson ? ` - ${moduleLesson}` : ''}`
-    : 'Tất cả module';
+    : 'Tổng hợp theo chủ đề';
 
   // Multi-slide selection: stores selected material IDs
   const [selectedSlideIds, setSelectedSlideIds] = useState<string[]>(() => {
@@ -93,7 +93,7 @@ function QuizForm({ materials, existing }: { materials: Material[]; existing: Ma
     if (targetWeek !== null) {
       return `Quiz: ${moduleTitle} (${course.code})`;
     }
-    return `Quiz bài tập (${course.code})`;
+    return `Quiz tổng hợp theo chủ đề (${course.code})`;
   });
 
   const [description, setDescription] = useState(existing?.description ?? '');
@@ -353,6 +353,7 @@ function QuizForm({ materials, existing }: { materials: Material[]; existing: Ma
       description: description.trim() || null,
       week_number: week === '' ? null : Number(week),
       material_id: primaryMaterialId,
+      quiz_type: week === '' ? 'comprehensive' : 'lesson',
       source,
       points_per_question: points,
       time_limit_seconds: hasTimeLimit && timeLimitMinutes ? timeLimitMinutes * 60 : null,
@@ -370,7 +371,7 @@ function QuizForm({ materials, existing }: { materials: Material[]; existing: Ma
       if (publish) {
         await platform.patch(`/courses/${course.id}/quizzes/${id}/status`, { status: 'published' });
       }
-      navigate(`/courses/${course.id}`);
+      navigate(`/courses/${course.id}/quizzes`);
     } catch (err) {
       setSaveError(errorMessage(err));
     } finally {
@@ -385,7 +386,7 @@ function QuizForm({ materials, existing }: { materials: Material[]; existing: Ma
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => navigate(`/courses/${course.id}`)}
+            onClick={() => navigate(`/courses/${course.id}/quizzes`)}
             className="px-2.5 py-1.5 text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
           >
             <ArrowLeft size={14} />
@@ -465,7 +466,9 @@ function QuizForm({ materials, existing }: { materials: Material[]; existing: Ma
               1. Chọn slide bài giảng làm ngữ cảnh tạo câu hỏi ({availableSlides.length} slide)
             </h3>
             <p className="text-[11px] text-slate-500">
-              Chọn các slide thuộc module này để trích xuất câu hỏi quiz.
+              {targetWeek !== null
+                ? 'Chọn các slide thuộc module này để trích xuất câu hỏi quiz.'
+                : 'Chọn các slide bài giảng từ các module để tạo câu hỏi quiz tổng hợp.'}
             </p>
           </div>
 
@@ -480,7 +483,7 @@ function QuizForm({ materials, existing }: { materials: Material[]; existing: Ma
 
         {availableSlides.length === 0 ? (
           <p className="text-xs text-slate-500 italic py-2">
-            Chưa có tài liệu slide nào được tải lên cho module này.
+            Chưa có tài liệu slide nào được tải lên cho môn học.
           </p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -504,7 +507,7 @@ function QuizForm({ materials, existing }: { materials: Material[]; existing: Ma
                   <div className="flex-1 min-w-0">
                     <span className="font-bold block truncate">{slide.title}</span>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      {slide.page_count} trang • {slide.lesson_title || 'Bài học'}
+                      {slide.week_number ? `Tuần ${slide.week_number} • ` : ''}{slide.page_count} trang • {slide.lesson_title || 'Bài học'}
                     </p>
                   </div>
                 </label>

@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { platform, ai } from '../../lib/api';
-import type { Topic, Material, QuizSummary, CompetencyReport } from '../../lib/types';
+import type { Topic, Material, QuizSummary, CompetencyReport, QuestionType } from '../../lib/types';
 import { errorMessage, useAsync } from '../../lib/useAsync';
+import { fromLocalInput, toLocalInput } from '../../lib/format';
 import { InlineError } from '../../components/StateViews';
-import { btn } from '../../components/styles';
+import { btn, inputClass } from '../../components/styles';
 
 /**
  * Composite review quiz built from selected modules and published slides.
  * Strictly filters for approved materials only and provides AI-driven recommendations
  * based on student competency (strengths/weaknesses).
+ * Includes full quiz configuration: time limit, due date, question count, question types, and Bloom taxonomy.
  */
 export function ComprehensiveBuilder({
   courseId,
@@ -26,6 +28,52 @@ export function ComprehensiveBuilder({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [expandedWeeks, setExpandedWeeks] = useState<number[]>([]);
+
+  // ── Quiz Configuration State (Thời gian làm bài, Hạn nộp, Số câu, Dạng câu, Thang đo) ──
+  const [quizTitle, setQuizTitle] = useState<string>('');
+  const [questionCount, setQuestionCount] = useState<number>(10);
+  const [hasTimeLimit, setHasTimeLimit] = useState<boolean>(true);
+  const [timeLimitMinutes, setTimeLimitMinutes] = useState<number>(15);
+  const [dueDate, setDueDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    d.setHours(23, 59, 0, 0);
+    return toLocalInput(d.toISOString());
+  });
+  const [difficulty, setDifficulty] = useState<string>('medium');
+  const [selectedQuestionTypes, setSelectedQuestionTypes] = useState<QuestionType[]>([
+    'single_choice',
+    'multiple_choice',
+  ]);
+
+  const toggleQuestionType = (type: QuestionType) => {
+    setSelectedQuestionTypes((prev) => {
+      if (prev.includes(type)) {
+        if (prev.length === 1) return prev; // Giữ lại ít nhất 1 loại
+        return prev.filter((t) => t !== type);
+      }
+      return [...prev, type];
+    });
+  };
+
+  // Bloom Taxonomy percentages
+  const [bloomRemember, setBloomRemember] = useState<number>(40);
+  const [bloomUnderstand, setBloomUnderstand] = useState<number>(40);
+  const [bloomApply, setBloomApply] = useState<number>(20);
+  const totalBloom = Number(bloomRemember || 0) + Number(bloomUnderstand || 0) + Number(bloomApply || 0);
+
+  const applyBloomPreset = (rem: number, und: number, app: number) => {
+    setBloomRemember(rem);
+    setBloomUnderstand(und);
+    setBloomApply(app);
+  };
+
+  const addDaysToDueDate = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    d.setHours(23, 59, 0, 0);
+    setDueDate(toLocalInput(d.toISOString()));
+  };
 
   // AI Recommendation state
   const [aiSuggestion, setAiSuggestion] = useState<{
@@ -77,7 +125,6 @@ export function ComprehensiveBuilder({
 
         if (weaknesses.length > 0) {
           const weakTopicsStr = weaknesses.map((w) => `"${w.topic}"`).join(', ');
-          // Match weak topic names to available weeks if possible
           const matchedWeeks: number[] = [];
           if (topicsData?.topics) {
             for (const t of topicsData.topics) {
@@ -157,7 +204,6 @@ export function ComprehensiveBuilder({
     }
     setSelectedSlideIds(newSlideIds);
 
-    // If any slide in this week is selected, keep the week selected; otherwise remove week
     const weekSlides = publishedMaterials.filter((m) => m.week_number === weekNumber).map((m) => m.id);
     const hasAnySlideInWeek = weekSlides.some((id) => newSlideIds.includes(id));
 
@@ -184,7 +230,6 @@ export function ComprehensiveBuilder({
     const finalWeeks = weeksToSelect.length > 0 ? weeksToSelect : [topics.find((t) => t.available)?.week_number ?? 1];
     setSelectedWeeks(finalWeeks);
 
-    // Also auto-select published slides for those weeks
     const slideIds = publishedMaterials
       .filter((m) => finalWeeks.includes(m.week_number ?? -1))
       .map((m) => m.id);
@@ -196,9 +241,19 @@ export function ComprehensiveBuilder({
     setBusy(true);
     setError(null);
     try {
+      const perTopic = Math.max(1, Math.ceil(questionCount / selectedWeeks.length));
       const res = await platform.post<{ quiz_id: string }>(`/courses/${courseId}/quizzes/comprehensive`, {
         week_numbers: selectedWeeks,
-        questions_per_topic: 2,
+        questions_per_topic: perTopic,
+        question_count: questionCount,
+        title: quizTitle.trim() || undefined,
+        time_limit_seconds: hasTimeLimit ? timeLimitMinutes * 60 : null,
+        due_at: dueDate ? fromLocalInput(dueDate) : null,
+        question_types: selectedQuestionTypes,
+        difficulty,
+        bloom_remember: bloomRemember,
+        bloom_understand: bloomUnderstand,
+        bloom_apply: bloomApply,
       });
       onCreated(res.quiz_id);
     } catch (err) {
@@ -373,6 +428,326 @@ export function ComprehensiveBuilder({
         )}
       </div>
 
+      {/* ── THÔNG TIN CẤU HÌNH BÀI QUIZ (Thời gian, Hạn nộp, Số câu, Dạng câu hỏi, Thang đo) ── */}
+      <div className="border-t border-slate-200 pt-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+            Cấu hình bài thi:
+          </span>
+          <span className="text-xs text-slate-500">
+            Tùy chỉnh thời gian, số câu hỏi và phân bổ độ khó
+          </span>
+        </div>
+
+        {/* Tiêu đề bài Quiz (Tùy chọn) */}
+        <div>
+          <label className="block text-xs font-semibold text-slate-700 mb-1">
+            Tiêu đề bài Quiz (Tùy chọn)
+          </label>
+          <input
+            type="text"
+            value={quizTitle}
+            onChange={(e) => setQuizTitle(e.target.value)}
+            placeholder={
+              selectedWeeks.length > 0
+                ? `Quiz tổng hợp — Tuần ${selectedWeeks.slice().sort((a, b) => a - b).join(', ')}`
+                : 'Nhập tiêu đề hoặc để trống để tạo tự động'
+            }
+            className={inputClass}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Thời gian làm bài */}
+          <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={hasTimeLimit}
+                  onChange={(e) => setHasTimeLimit(e.target.checked)}
+                  className="rounded border-slate-300 text-[#1E3A6E] focus:ring-[#1E3A6E]"
+                />
+                <span>Thời gian làm bài</span>
+              </label>
+              <span className="text-[11px] font-semibold text-slate-500">
+                {hasTimeLimit ? `${timeLimitMinutes} phút` : 'Tự do'}
+              </span>
+            </div>
+
+            {hasTimeLimit ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    max={180}
+                    value={timeLimitMinutes}
+                    onChange={(e) => setTimeLimitMinutes(Math.max(1, Number(e.target.value) || 1))}
+                    className={`${inputClass} text-center font-bold`}
+                  />
+                  <span className="text-xs text-slate-500 shrink-0">Phút</span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[10, 15, 30, 45, 60].map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => setTimeLimitMinutes(m)}
+                      className={`px-2 py-0.5 text-[11px] font-semibold rounded border transition-colors cursor-pointer ${
+                        timeLimitMinutes === m
+                          ? 'bg-[#1E3A6E] text-white border-[#1E3A6E]'
+                          : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      {m}p
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 italic py-1">
+                Không giới hạn thời gian làm bài kiểm tra.
+              </p>
+            )}
+          </div>
+
+          {/* Hạn nộp bài */}
+          <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-800">
+                Hạn nộp bài
+              </label>
+              {dueDate ? (
+                <button
+                  type="button"
+                  onClick={() => setDueDate('')}
+                  className="text-[11px] text-slate-500 hover:text-slate-800 underline cursor-pointer"
+                >
+                  Không hạn
+                </button>
+              ) : (
+                <span className="text-[11px] text-slate-500">Không có hạn</span>
+              )}
+            </div>
+
+            <input
+              type="datetime-local"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className={inputClass}
+            />
+
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {[
+                { label: '+3 ngày', days: 3 },
+                { label: '+7 ngày', days: 7 },
+                { label: '+14 ngày', days: 14 },
+              ].map((btnOption) => (
+                <button
+                  key={btnOption.label}
+                  type="button"
+                  onClick={() => addDaysToDueDate(btnOption.days)}
+                  className="px-2 py-0.5 text-[11px] font-semibold rounded bg-white text-slate-600 border border-slate-200 hover:border-slate-300 transition-colors cursor-pointer"
+                >
+                  {btnOption.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Số lượng câu hỏi */}
+          <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-800">
+                Số lượng câu hỏi
+              </label>
+              <span className="text-[11px] font-semibold text-slate-500">
+                {questionCount} câu
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={2}
+                max={50}
+                value={questionCount}
+                onChange={(e) => setQuestionCount(Math.max(2, Math.min(50, Number(e.target.value) || 2)))}
+                className={`${inputClass} text-center font-bold`}
+              />
+              <span className="text-xs text-slate-500 shrink-0">Câu</span>
+            </div>
+
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {[5, 10, 15, 20, 25].map((cnt) => (
+                <button
+                  key={cnt}
+                  type="button"
+                  onClick={() => setQuestionCount(cnt)}
+                  className={`px-2 py-0.5 text-[11px] font-semibold rounded border transition-colors cursor-pointer ${
+                    questionCount === cnt
+                      ? 'bg-[#1E3A6E] text-white border-[#1E3A6E]'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  {cnt} câu
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Dạng câu hỏi & Mức độ khó */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Dạng câu hỏi */}
+          <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200 space-y-2.5">
+            <div className="text-xs font-bold text-slate-800">
+              Dạng câu hỏi (chọn nhiều loại):
+            </div>
+            <div className="flex items-center gap-4 flex-wrap pt-1">
+              {[
+                { type: 'single_choice' as QuestionType, label: 'Một đáp án' },
+                { type: 'multiple_choice' as QuestionType, label: 'Nhiều đáp án' },
+                { type: 'short_answer' as QuestionType, label: 'Trả lời ngắn' },
+              ].map(({ type, label }) => {
+                const checked = selectedQuestionTypes.includes(type);
+                return (
+                  <label
+                    key={type}
+                    className="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer select-none"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleQuestionType(type)}
+                      className="rounded border-slate-300 text-[#1E3A6E] focus:ring-[#1E3A6E]"
+                    />
+                    <span>{label}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Mức độ khó */}
+          <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200 space-y-2.5">
+            <div className="text-xs font-bold text-slate-800">
+              Mức độ khó:
+            </div>
+            <div className="flex items-center gap-2 flex-wrap pt-1">
+              {[
+                { id: 'easy', label: 'Dễ' },
+                { id: 'medium', label: 'Trung bình' },
+                { id: 'hard', label: 'Khó' },
+                { id: 'mixed', label: 'Hỗn hợp' },
+              ].map((diff) => (
+                <button
+                  key={diff.id}
+                  type="button"
+                  onClick={() => setDifficulty(diff.id)}
+                  className={`px-3 py-1 text-xs font-semibold rounded-lg border transition-colors cursor-pointer ${
+                    difficulty === diff.id
+                      ? 'bg-[#1E3A6E] text-white border-[#1E3A6E]'
+                      : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  {diff.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Phân bổ thang đo nhận thức Bloom (Tối giản, không màu mè) */}
+        <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200 space-y-2.5">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-800">
+                Phân bổ thang đo nhận thức Bloom:
+              </span>
+              <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${
+                totalBloom === 100
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : 'bg-amber-100 text-amber-800'
+              }`}>
+                Tổng: {totalBloom}%
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => applyBloomPreset(50, 40, 10)}
+                className="px-2 py-0.5 text-[11px] font-semibold rounded bg-white text-slate-600 border border-slate-200 hover:border-slate-300 cursor-pointer"
+              >
+                Cơ bản (50/40/10)
+              </button>
+              <button
+                type="button"
+                onClick={() => applyBloomPreset(40, 40, 20)}
+                className="px-2 py-0.5 text-[11px] font-semibold rounded bg-white text-slate-600 border border-slate-200 hover:border-slate-300 cursor-pointer"
+              >
+                Cân bằng (40/40/20)
+              </button>
+              <button
+                type="button"
+                onClick={() => applyBloomPreset(20, 40, 40)}
+                className="px-2 py-0.5 text-[11px] font-semibold rounded bg-white text-slate-600 border border-slate-200 hover:border-slate-300 cursor-pointer"
+              >
+                Nâng cao (20/40/40)
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+            <div className="bg-white p-2.5 rounded-lg border border-slate-200 space-y-1">
+              <div className="text-[11px] font-bold text-slate-700">Nhận biết (Remember)</div>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={bloomRemember}
+                  onChange={(e) => setBloomRemember(Number(e.target.value) || 0)}
+                  className={`${inputClass} text-center font-bold`}
+                />
+                <span className="text-xs text-slate-500 font-bold">%</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-2.5 rounded-lg border border-slate-200 space-y-1">
+              <div className="text-[11px] font-bold text-slate-700">Thông hiểu (Understand)</div>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={bloomUnderstand}
+                  onChange={(e) => setBloomUnderstand(Number(e.target.value) || 0)}
+                  className={`${inputClass} text-center font-bold`}
+                />
+                <span className="text-xs text-slate-500 font-bold">%</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-2.5 rounded-lg border border-slate-200 space-y-1">
+              <div className="text-[11px] font-bold text-slate-700">Vận dụng (Apply)</div>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={bloomApply}
+                  onChange={(e) => setBloomApply(Number(e.target.value) || 0)}
+                  className={`${inputClass} text-center font-bold`}
+                />
+                <span className="text-xs text-slate-500 font-bold">%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <InlineError message={error} />
 
       {/* Action button */}
@@ -380,7 +755,7 @@ export function ComprehensiveBuilder({
         <span className="text-xs text-slate-500">
           {selectedCount === 0
             ? 'Vui lòng chọn ít nhất 1 chủ đề'
-            : `Sẵn sàng tạo quiz tổng hợp từ ${selectedCount} chủ đề`}
+            : `Sẵn sàng tạo quiz tổng hợp từ ${selectedCount} chủ đề • ${questionCount} câu • ${hasTimeLimit ? `${timeLimitMinutes} phút` : 'Tự do'}`}
         </span>
         <button
           type="button"
@@ -388,7 +763,7 @@ export function ComprehensiveBuilder({
           disabled={busy || selectedCount < 1}
           className={btn.primary}
         >
-          {busy ? 'Đang tạo quiz…' : `Tạo quiz tổng hợp (${selectedCount} chủ đề)`}
+          {busy ? 'Đang tạo quiz…' : `Tạo quiz tổng hợp (${questionCount} câu)`}
         </button>
       </div>
     </section>

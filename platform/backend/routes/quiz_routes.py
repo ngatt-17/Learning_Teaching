@@ -85,6 +85,7 @@ class QuizCreate(BaseModel):
     description: Optional[str] = None
     week_number: Optional[int] = None
     material_id: Optional[str] = None
+    quiz_type: Optional[Literal["lesson", "comprehensive"]] = None
     source: Literal["manual", "ai_draft"] = "manual"
     points_per_question: float = Field(default=1, gt=0, le=20)
     time_limit_seconds: Optional[int] = Field(default=None, gt=0, le=7200)
@@ -108,7 +109,16 @@ class QuizSubmission(BaseModel):
 
 class ComprehensiveRequest(BaseModel):
     week_numbers: List[int]
-    questions_per_topic: int = Field(default=2, ge=1, le=10)
+    questions_per_topic: int = Field(default=2, ge=1, le=50)
+    title: Optional[str] = None
+    time_limit_seconds: Optional[int] = None
+    due_at: Optional[datetime] = None
+    question_count: Optional[int] = None
+    question_types: Optional[List[str]] = None
+    difficulty: Optional[str] = None
+    bloom_remember: Optional[int] = None
+    bloom_understand: Optional[int] = None
+    bloom_apply: Optional[int] = None
 
 
 # ─────────────────────────── helpers ───────────────────────────
@@ -564,27 +574,40 @@ def create_comprehensive_quiz(
                 detail=f"Các tuần chưa học/chưa có quiz phát hành nên bị khóa: {locked}"
             )
 
+        quiz_title = data.title.strip() if data.title and data.title.strip() else f"Quiz tổng hợp — tuần {', '.join(map(str, weeks))}"
         cur.execute("""
             INSERT INTO quizzes (course_id, week_number, title, quiz_type, source, status,
-                                 points_per_question, created_by)
-            VALUES (%s, NULL, %s, 'comprehensive', 'manual', 'published', 1, %s)
+                                 points_per_question, time_limit_seconds, due_at, created_by)
+            VALUES (%s, NULL, %s, 'comprehensive', 'manual', 'published', 1, %s, %s, %s)
             RETURNING id, title, points_per_question;
-        """, (course_id, f"Quiz tổng hợp — tuần {', '.join(map(str, weeks))}", current_user.user_id))
+        """, (course_id, quiz_title, data.time_limit_seconds, data.due_at, current_user.user_id))
         new_quiz = cur.fetchone()
 
         position = 0
+        total_needed = data.question_count or (len(weeks) * data.questions_per_topic)
+        per_week = max(1, (total_needed + len(weeks) - 1) // len(weeks))
+
         for week in weeks:
-            cur.execute("""
+            query = """
                 SELECT qq.question_type, qq.prompt, qq.options, qq.correct_answer, qq.accepted_answers,
                        qq.explanation, qq.topic, qq.citation
                 FROM quiz_questions qq
                 JOIN quizzes q ON q.id = qq.quiz_id
                 WHERE q.course_id = %s AND q.week_number = %s
-                  AND q.quiz_type = 'lesson' AND q.status = 'published'
-                ORDER BY RANDOM()
-                LIMIT %s;
-            """, (course_id, week, data.questions_per_topic))
+                  AND q.quiz_type = 'lesson'
+            """
+            params = [course_id, week]
+            if data.question_types and len(data.question_types) > 0:
+                query += " AND qq.question_type = ANY(%s)"
+                params.append(data.question_types)
+
+            query += " ORDER BY RANDOM() LIMIT %s;"
+            params.append(per_week)
+
+            cur.execute(query, tuple(params))
             for q in cur.fetchall():
+                if position >= total_needed:
+                    break
                 position += 1
                 cur.execute("""
                     INSERT INTO quiz_questions (quiz_id, position, question_type, prompt, options,
@@ -596,6 +619,34 @@ def create_comprehensive_quiz(
                       Json(q["accepted_answers"]) if q["accepted_answers"] is not None else None,
                       q["explanation"], q["topic"],
                       Json(q["citation"]) if q["citation"] is not None else None))
+
+        # Fallback without question_types filter if filtered query returned no questions
+        if position == 0 and data.question_types and len(data.question_types) > 0:
+            for week in weeks:
+                cur.execute("""
+                    SELECT qq.question_type, qq.prompt, qq.options, qq.correct_answer, qq.accepted_answers,
+                           qq.explanation, qq.topic, qq.citation
+                    FROM quiz_questions qq
+                    JOIN quizzes q ON q.id = qq.quiz_id
+                    WHERE q.course_id = %s AND q.week_number = %s
+                      AND q.quiz_type = 'lesson'
+                    ORDER BY RANDOM()
+                    LIMIT %s;
+                """, (course_id, week, per_week))
+                for q in cur.fetchall():
+                    if position >= total_needed:
+                        break
+                    position += 1
+                    cur.execute("""
+                        INSERT INTO quiz_questions (quiz_id, position, question_type, prompt, options,
+                                                    correct_answer, accepted_answers, explanation, topic, citation)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                    """, (new_quiz["id"], position, q["question_type"], q["prompt"],
+                          Json(q["options"]) if q["options"] is not None else None,
+                          q["correct_answer"],
+                          Json(q["accepted_answers"]) if q["accepted_answers"] is not None else None,
+                          q["explanation"], q["topic"],
+                          Json(q["citation"]) if q["citation"] is not None else None))
 
         if position == 0:
             raise HTTPException(status_code=400, detail="Các tuần đã chọn chưa có câu hỏi nào")
@@ -649,12 +700,13 @@ def create_quiz(course_id: str, data: QuizCreate, current_user: UserPayload = De
     """
     with get_db() as cur:
         _check_material_in_course(cur, course_id, data.material_id)
+        quiz_type = data.quiz_type or ('comprehensive' if data.week_number is None else 'lesson')
         cur.execute("""
             INSERT INTO quizzes (course_id, material_id, week_number, title, description, quiz_type, source,
                                  status, points_per_question, time_limit_seconds, due_at, created_by)
-            VALUES (%s, %s, %s, %s, %s, 'lesson', %s, 'draft', %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'draft', %s, %s, %s, %s)
             RETURNING id, title, status, source;
-        """, (course_id, data.material_id, data.week_number, data.title, data.description, data.source,
+        """, (course_id, data.material_id, data.week_number, data.title, data.description, quiz_type, data.source,
               data.points_per_question, data.time_limit_seconds, data.due_at, current_user.user_id))
         quiz = cur.fetchone()
         _insert_questions(cur, quiz["id"], data.questions)
@@ -678,8 +730,6 @@ def update_draft_quiz(course_id: str, quiz_id: str, data: QuizCreate,
     """
     with get_db() as cur:
         quiz = _load_quiz(cur, course_id, quiz_id)
-        if quiz["quiz_type"] != "lesson":
-            raise HTTPException(status_code=400, detail="Only lesson quizzes can be edited")
         if quiz["status"] != "draft":
             raise HTTPException(status_code=409, detail="Only draft quizzes can be edited; unpublish it first")
         cur.execute("SELECT COUNT(*) AS n FROM quiz_attempts WHERE quiz_id = %s;", (quiz_id,))
@@ -687,12 +737,15 @@ def update_draft_quiz(course_id: str, quiz_id: str, data: QuizCreate,
             raise HTTPException(status_code=409, detail="This quiz already has attempts and cannot be edited")
         _check_material_in_course(cur, course_id, data.material_id)
 
+        quiz_type = data.quiz_type or quiz.get("quiz_type") or ('comprehensive' if data.week_number is None else 'lesson')
         # The source is kept: an AI draft stays labelled as AI-assisted after review.
         cur.execute("""
             UPDATE quizzes SET title = %s, description = %s, week_number = %s, material_id = %s,
+                   quiz_type = %s,
                    points_per_question = %s, time_limit_seconds = %s, due_at = %s, updated_at = NOW()
             WHERE id = %s;
         """, (data.title, data.description, data.week_number, data.material_id,
+              quiz_type,
               data.points_per_question, data.time_limit_seconds, data.due_at, quiz_id))
         cur.execute("DELETE FROM quiz_questions WHERE quiz_id = %s;", (quiz_id,))
         _insert_questions(cur, quiz_id, data.questions)
